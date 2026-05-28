@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MD Writer</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="tabs" id="tabs">
+      <button class="btn-new-tab" id="btnNew" title="Neues Dokument">+</button>
+    </div>
+    <div class="shortcuts">
+      <span class="sc"><kbd>Alt O</kbd> Öffnen</span>
+      <span class="sc"><kbd>Alt I</kbd> Importieren</span>
+      <span class="sc"><kbd>Alt D</kbd> Download</span>
+      <span class="sc"><kbd>Alt S</kbd> Speichern</span>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <div class="gutter" id="gutter"></div>
+    <textarea id="editor"
+      spellcheck="false"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      wrap="off"></textarea>
+  </div>
+
+  <div class="ctx-menu" id="ctxMenu">
+    <button data-action="heading">Überschrift</button>
+    <button data-action="codeblock-code">Code · Code</button>
+    <button data-action="codeblock-yaml">Code · YAML</button>
+    <button data-action="codeblock-text">Code · Text</button>
+    <button data-action="table">Tabelle</button>
+    <button data-action="link">Link</button>
+    <button data-action="image">Bild</button>
+  </div>
+
+  <div class="modal-overlay" id="openModal">
+    <div class="modal">
+      <div class="modal-title">Datei öffnen</div>
+      <div class="file-list" id="fileList"></div>
+      <div class="modal-actions">
+        <button class="modal-cancel" id="cancelOpen">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <div class="modal-title">Datei speichern</div>
+      <input type="text" id="saveFilename" class="modal-input" placeholder="dateiname.md">
+      <div class="modal-actions">
+        <button class="modal-cancel" id="cancelSave">Abbrechen</button>
+        <button class="modal-confirm" id="confirmSave">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".md" style="display:none">
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
