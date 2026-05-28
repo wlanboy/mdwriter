@@ -1,0 +1,16 @@
+[project]
+name = "mdwriter"
+version = "0.1.0"
+description = "web based minimal md writer"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.136.3",
+    "uvicorn>=0.48.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.409",
+    "ruff>=0.15.14",
+]
