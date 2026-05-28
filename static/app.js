@@ -24,6 +24,33 @@ let saveTimer     = null;
 let toastTmr      = null;
 let previewActive = false;
 
+// ── Local store ───────────────────────────────────────────────────────────────
+const STORE_KEY = 'mdwriter';
+
+function saveState() {
+  const cur = tab_(activeId);
+  if (cur) cur.content = editor.value;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ tabs, activeId, nextId }));
+  } catch { /* quota exceeded */ }
+}
+
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!Array.isArray(s.tabs) || !s.tabs.length) return false;
+    tabs   = s.tabs;
+    nextId = s.nextId ?? (Math.max(...tabs.map(t => t.id)) + 1);
+    const target = tabs.find(t => t.id === s.activeId) ? s.activeId : tabs[0].id;
+    activateTab(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Tab helpers ───────────────────────────────────────────────────────────────
 function makeTab(name = 'Unbenannt', content = '', serverPath = null) {
   return { id: nextId++, name, content, serverPath, saved: false };
@@ -101,6 +128,7 @@ function renderTabs() {
     btn.addEventListener('click', () => activateTab(t.id));
     tabsEl.insertBefore(btn, btnNew);
   });
+  saveState();
 }
 
 function startRename(t, nameSpan) {
@@ -251,6 +279,7 @@ document.addEventListener('keydown', e => {
     case 'i': e.preventDefault(); fileInput.click(); break;
     case 'd': e.preventDefault(); downloadFile();   break;
     case 'p': e.preventDefault(); togglePreview();  break;
+    case 'c': e.preventDefault(); closeTab(activeId); break;
     case 's': {
       e.preventDefault();
       const t = activeTab();
@@ -288,6 +317,7 @@ fileInput.addEventListener('change', async () => {
 editor.addEventListener('input', () => {
   const t = activeTab();
   if (t) t.content = editor.value;
+  if (t && !t.saved) saveState();
   markUnsaved();
   syncGutter();
   scheduleAutosave();
@@ -307,4 +337,4 @@ function toast(msg) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-newDoc();
+if (!restoreState()) newDoc();

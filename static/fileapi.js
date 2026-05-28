@@ -56,6 +56,13 @@ async function loadFile(name) {
     const content = await res.text();
     const tab = makeTab(name.replace(/\.md$/i, ''), content, name);
     tab.saved = true;
+
+    const cur = activeTab();
+    if (tabs.length === 1 && cur && !cur.serverPath && cur.content.trim() === '') {
+      tabs.splice(tabs.indexOf(cur), 1);
+      activeId = 0;
+    }
+
     openTab(tab);
   } catch {
     toast('Fehler beim Öffnen');
