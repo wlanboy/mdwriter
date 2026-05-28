@@ -94,6 +94,19 @@ header {
 .tab:hover .tab-x { opacity: 1; }
 .tab-x:hover { color: var(--c-text); }
 
+.tab-rename {
+  background: var(--c-bg);
+  border: 1px solid var(--c-accent);
+  border-radius: 3px;
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 1px 5px;
+  outline: none;
+  width: 120px;
+  min-width: 40px;
+}
+
 .btn-new-tab {
   display: flex; align-items: center; justify-content: center;
   width: 36px; height: 100%;
