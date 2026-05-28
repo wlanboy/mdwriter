@@ -1,25 +1,28 @@
 'use strict';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const editor    = document.getElementById('editor');
-const gutter    = document.getElementById('gutter');
-const tabsEl    = document.getElementById('tabs');
-const btnNew    = document.getElementById('btnNew');
-const ctxMenu   = document.getElementById('ctxMenu');
-const openModal = document.getElementById('openModal');
-const saveModal = document.getElementById('saveModal');
-const fileList  = document.getElementById('fileList');
-const fileInput = document.getElementById('fileInput');
-const toastEl   = document.getElementById('toast');
-const saveInput = document.getElementById('saveFilename');
+const editor     = document.getElementById('editor');
+const gutter     = document.getElementById('gutter');
+const tabsEl     = document.getElementById('tabs');
+const btnNew     = document.getElementById('btnNew');
+const ctxMenu    = document.getElementById('ctxMenu');
+const openModal  = document.getElementById('openModal');
+const saveModal  = document.getElementById('saveModal');
+const fileList   = document.getElementById('fileList');
+const fileInput  = document.getElementById('fileInput');
+const toastEl    = document.getElementById('toast');
+const saveInput  = document.getElementById('saveFilename');
+const workspace  = document.getElementById('workspace');
+const previewEl  = document.getElementById('preview');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let tabs      = [];
-let activeId  = 0;
-let nextId    = 1;
-let ctxLine   = -1;
-let saveTimer = null;
-let toastTmr  = null;
+let tabs          = [];
+let activeId      = 0;
+let nextId        = 1;
+let ctxLine       = -1;
+let saveTimer     = null;
+let toastTmr      = null;
+let previewActive = false;
 
 // ── Tab helpers ───────────────────────────────────────────────────────────────
 function makeTab(name = 'Unbenannt', content = '', serverPath = null) {
@@ -198,6 +201,20 @@ document.addEventListener('click', e => {
   if (!ctxMenu.contains(e.target)) closeCtxMenu();
 });
 
+// ── Preview ───────────────────────────────────────────────────────────────────
+function updatePreview() {
+  if (!previewActive) return;
+  const t  = activeTab();
+  const md = t ? (t.id === activeId ? editor.value : t.content) : '';
+  previewEl.innerHTML = marked.parse(md);
+}
+
+function togglePreview() {
+  previewActive = !previewActive;
+  workspace.classList.toggle('preview-mode', previewActive);
+  if (previewActive) updatePreview();
+}
+
 // ── Autosave ──────────────────────────────────────────────────────────────────
 function scheduleAutosave() {
   clearTimeout(saveTimer);
@@ -233,6 +250,7 @@ document.addEventListener('keydown', e => {
     case 'o': e.preventDefault(); openFromServer(); break;
     case 'i': e.preventDefault(); fileInput.click(); break;
     case 'd': e.preventDefault(); downloadFile();   break;
+    case 'p': e.preventDefault(); togglePreview();  break;
     case 's': {
       e.preventDefault();
       const t = activeTab();
@@ -273,6 +291,7 @@ editor.addEventListener('input', () => {
   markUnsaved();
   syncGutter();
   scheduleAutosave();
+  updatePreview();
 });
 
 // ── New tab / new doc ─────────────────────────────────────────────────────────
