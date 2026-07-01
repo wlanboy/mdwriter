@@ -266,10 +266,23 @@ kbd {
 .file-item {
   padding: 7px 10px;
   border-radius: 4px;
-  cursor: pointer; font-size: 13px;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   transition: background 0.1s;
 }
 .file-item:hover { background: var(--c-bg3); }
+.file-item-name { flex: 1; cursor: pointer; }
+.file-item-del {
+  background: none; border: none;
+  color: var(--c-muted); cursor: pointer;
+  font-size: 15px; line-height: 1;
+  padding: 2px 4px;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+.file-item:hover .file-item-del { opacity: 1; }
+.file-item-del:hover { color: #e05252; }
 .file-empty { padding: 8px 4px; color: var(--c-muted); font-size: 13px; }
 
 .modal-input {

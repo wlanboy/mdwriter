@@ -30,20 +30,60 @@ async function openFromServer() {
     if (!files.length) {
       fileList.innerHTML = '<div class="file-empty">Keine Dateien vorhanden</div>';
     } else {
-      files.forEach(name => {
-        const div = document.createElement('div');
-        div.className   = 'file-item';
-        div.textContent = name;
-        div.addEventListener('click', () => {
-          openModal.classList.remove('open');
-          loadFile(name);
-        });
-        fileList.appendChild(div);
-      });
+      files.forEach(name => fileList.appendChild(makeFileItem(name)));
     }
     openModal.classList.add('open');
   } catch {
     toast('Fehler beim Laden der Dateiliste');
+  }
+}
+
+function makeFileItem(name) {
+  const row = document.createElement('div');
+  row.className = 'file-item';
+
+  const label = document.createElement('span');
+  label.className = 'file-item-name';
+  label.textContent = name;
+  label.addEventListener('click', () => {
+    openModal.classList.remove('open');
+    loadFile(name);
+  });
+
+  const del = document.createElement('button');
+  del.className = 'file-item-del';
+  del.title = 'Löschen';
+  del.textContent = '×';
+  del.addEventListener('click', e => {
+    e.stopPropagation();
+    deleteServerFile(name, row);
+  });
+
+  row.append(label, del);
+  return row;
+}
+
+async function deleteServerFile(name, row) {
+  if (!confirm('„' + name + '" wirklich löschen?')) return;
+  try {
+    const res = await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
+    if (res.ok || res.status === 204) {
+      row.remove();
+      if (!fileList.children.length) {
+        fileList.innerHTML = '<div class="file-empty">Keine Dateien vorhanden</div>';
+      }
+      const openTab = tabs.find(t => t.serverPath === name);
+      if (openTab) {
+        openTab.serverPath = null;
+        openTab.saved = false;
+        renderTabs();
+      }
+      toast('Gelöscht');
+    } else {
+      toast('Fehler beim Löschen (' + res.status + ')');
+    }
+  } catch {
+    toast('Netzwerkfehler');
   }
 }
 
