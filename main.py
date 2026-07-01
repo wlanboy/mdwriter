@@ -41,7 +41,11 @@ async def read_file(name: str):
 @app.post("/api/files/{name}", status_code=204)
 async def write_file(name: str, request: Request):
     p = safe_path(name)
-    p.write_text((await request.body()).decode("utf-8"), "utf-8")
+    try:
+        content = (await request.body()).decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "Body must be valid UTF-8")
+    p.write_text(content, "utf-8")
 
 
 @app.delete("/api/files/{name}", status_code=204)
