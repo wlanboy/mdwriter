@@ -5,7 +5,9 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-DOCS_DIR = Path("documents")
+BASE_DIR = Path(__file__).resolve().parent
+DOCS_DIR = BASE_DIR / "documents"
+STATIC_DIR = BASE_DIR / "static"
 DOCS_DIR.mkdir(exist_ok=True)
 
 _VALID = re.compile(r"^[\w\- .()]+\.md$")
@@ -52,10 +54,10 @@ async def delete_file(name: str):
 
 @app.get("/")
 async def index():
-    return HTMLResponse(Path("static/index.html").read_text("utf-8"))
+    return HTMLResponse((STATIC_DIR / "index.html").read_text("utf-8"))
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
