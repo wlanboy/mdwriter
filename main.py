@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 import uvicorn
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -26,12 +27,12 @@ app = FastAPI()
 
 
 @app.get("/api/files")
-async def list_files():
+def list_files():
     return sorted(f.name for f in DOCS_DIR.glob("*.md"))
 
 
 @app.get("/api/files/{name}")
-async def read_file(name: str):
+def read_file(name: str):
     p = safe_path(name)
     if not p.exists():
         raise HTTPException(404)
@@ -45,11 +46,11 @@ async def write_file(name: str, request: Request):
         content = (await request.body()).decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(400, "Body must be valid UTF-8")
-    p.write_text(content, "utf-8")
+    await run_in_threadpool(p.write_text, content, "utf-8")
 
 
 @app.delete("/api/files/{name}", status_code=204)
-async def delete_file(name: str):
+def delete_file(name: str):
     p = safe_path(name)
     if not p.exists():
         raise HTTPException(404)
@@ -57,7 +58,7 @@ async def delete_file(name: str):
 
 
 @app.get("/")
-async def index():
+def index():
     return HTMLResponse((STATIC_DIR / "index.html").read_text("utf-8"))
 
 
