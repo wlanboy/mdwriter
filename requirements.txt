@@ -4,11 +4,11 @@ annotated-doc==0.0.4
     # via fastapi
 annotated-types==0.7.0
     # via pydantic
-anyio==4.14.1
+anyio==4.14.2
     # via starlette
 click==8.4.2
     # via uvicorn
-fastapi==0.138.2
+fastapi==0.139.0
     # via mdwriter (pyproject.toml)
 h11==0.16.0
     # via uvicorn
@@ -20,17 +20,15 @@ pydantic-core==2.46.4
     # via pydantic
 starlette==1.3.1
     # via fastapi
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
-    #   anyio
     #   fastapi
     #   pydantic
     #   pydantic-core
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
     # via
     #   fastapi
     #   pydantic
-uvicorn==0.49.0
+uvicorn==0.51.0
     # via mdwriter (pyproject.toml)
