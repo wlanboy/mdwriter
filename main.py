@@ -52,16 +52,17 @@ async def write_file(name: str, request: Request):
 
 
 @app.delete("/api/files/{name}", status_code=204)
-def delete_file(name: str):
+async def delete_file(name: str):
     p = safe_path(name)
-    if not p.exists():
+    if not await run_in_threadpool(p.exists):
         raise HTTPException(404)
-    p.unlink()
+    await run_in_threadpool(p.unlink)
 
 
 @app.get("/")
-def index():
-    return HTMLResponse((STATIC_DIR / "index.html").read_text("utf-8"))
+async def index():
+    content = await run_in_threadpool((STATIC_DIR / "index.html").read_text, "utf-8")
+    return HTMLResponse(content)
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
