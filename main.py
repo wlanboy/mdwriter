@@ -27,16 +27,18 @@ app = FastAPI()
 
 
 @app.get("/api/files")
-def list_files():
-    return sorted(f.name for f in DOCS_DIR.glob("*.md"))
+async def list_files():
+    names = await run_in_threadpool(lambda: [f.name for f in DOCS_DIR.glob("*.md")])
+    return sorted(names)
 
 
 @app.get("/api/files/{name}")
-def read_file(name: str):
+async def read_file(name: str):
     p = safe_path(name)
-    if not p.exists():
+    if not await run_in_threadpool(p.exists):
         raise HTTPException(404)
-    return PlainTextResponse(p.read_text("utf-8"))
+    content = await run_in_threadpool(p.read_text, "utf-8")
+    return PlainTextResponse(content)
 
 
 @app.post("/api/files/{name}", status_code=204)
@@ -65,4 +67,4 @@ def index():
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
