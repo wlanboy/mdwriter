@@ -439,6 +439,28 @@ kbd {
 .editor-hl .y-line { height: var(--line-h); min-height: 0; }
 /* Italic or bold glyphs could change widths and misalign the caret. */
 .editor-hl span { font-style: normal; font-weight: normal; }
+/* Soft wrap (Markdown): .editor-measure mirrors the text at the same width so
+   the gutter can size each line. Its metrics must match #editor's as well. */
+#editor[wrap="soft"] {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+}
+.editor-measure {
+  position: absolute;
+  top: 0; left: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: var(--line-h);
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.editor-measure > div { min-height: var(--line-h); }
 .workspace.yaml-mode .editor-hl { display: block; }
 .workspace.yaml-mode #editor { color: transparent; }
 .workspace.yaml-mode #editor::selection { background: rgba(86, 156, 214, 0.35); }

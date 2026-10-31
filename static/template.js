@@ -15,28 +15,16 @@ function insertAtLine(lineIdx, action) {
   const tmpl = TEMPLATES[action];
   if (!tmpl) return;
 
-  const t = activeTab();
-  if (!t) return;
+  if (!activeTab()) return;
 
   const lines = editor.value.split('\n');
+  let lineEnd = -1;
+  for (let i = 0; i <= lineIdx; i++) lineEnd += lines[i].length + 1;
 
-  let insertOffset = 0;
-  for (let i = 0; i <= lineIdx; i++) insertOffset += lines[i].length + 1;
-
-  const insertLines = tmpl.text.split('\n');
-  lines.splice(lineIdx + 1, 0, ...insertLines);
-  const newVal = lines.join('\n');
-
-  editor.value = newVal;
-  const cursorPos = insertOffset + tmpl.cursor;
-  editor.setSelectionRange(cursorPos, cursorPos);
+  // insertText keeps Ctrl+Z working; its input event saves and redraws.
   editor.focus();
-
-  t.content = newVal;
-  t.saved = false;
-  renderTabs();
-  syncHighlight();
-  syncGutter();
-  updatePreview();
-  scheduleAutosave(t);
+  editor.setSelectionRange(lineEnd, lineEnd);
+  insertText('\n' + tmpl.text);
+  const cursorPos = lineEnd + 1 + tmpl.cursor;
+  editor.setSelectionRange(cursorPos, cursorPos);
 }

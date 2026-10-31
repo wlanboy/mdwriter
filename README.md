@@ -5,7 +5,8 @@ Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (F
 ## Features
 
 - **Multi-Tab-Editing** – mehrere Dokumente gleichzeitig öffnen, benennen und schließen. Ein Klick auf den Namen des aktiven Tabs benennt ihn um; ist das Dokument schon gespeichert, wird die Datei auf dem Server mit umbenannt. Projektdateien behalten ihren Namen.
-- **Live-Vorschau** – Markdown wird via [marked.js](https://marked.js.org/) in Echtzeit gerendert und mit [DOMPurify](https://github.com/cure53/DOMPurify) bereinigt
+- **Live-Vorschau** – Markdown wird via [marked.js](https://marked.js.org/) in Echtzeit gerendert und mit [DOMPurify](https://github.com/cure53/DOMPurify) bereinigt. Die Vorschau scrollt proportional mit dem Editor mit.
+- **Editor-Komfort** – `Tab`/`Shift+Tab` rücken die Zeile oder Auswahl um 2 Leerzeichen ein bzw. aus. `Enter` übernimmt die Einrückung und setzt Listen fort (`- `, `1. `, `- [ ] `); `Enter` auf einem leeren Listenpunkt beendet die Liste. In YAML wird nach `key:` eine Ebene tiefer eingerückt. Markdown bricht lange Zeilen um, YAML nicht. Alle Eingaben lassen sich mit `Ctrl+Z` rückgängig machen, auch eingefügte Vorlagen.
 - **Zeilennummern & Kontext-Menü** – Zeilenleiste mit `+`-Button zum Einfügen von Vorlagen (Überschrift, Code-Block als Code, YAML oder Text, Tabelle, Link, Bild)
 - **Server-Dateiverwaltung** – Dateien werden auf dem Server gespeichert, geöffnet und gelöscht
 - **Lokaler Import / Download** – `.md`-Dateien vom lokalen Rechner importieren oder herunterladen

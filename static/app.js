@@ -15,6 +15,7 @@ const saveInput  = document.getElementById('saveFilename');
 const workspace  = document.getElementById('workspace');
 const previewEl  = document.getElementById('preview');
 const editorHl   = document.getElementById('editorHl');
+const measureEl  = document.getElementById('editorMeasure');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let tabs          = [];
@@ -75,7 +76,10 @@ function activateTab(id) {
   const t = tab_(id);
   if (t) {
     editor.value = t.content;
-    workspace.classList.toggle('yaml-mode', isYamlPath(t.serverPath));
+    const yaml = isYamlPath(t.serverPath);
+    workspace.classList.toggle('yaml-mode', yaml);
+    // Markdown is prose and wraps; YAML keeps its columns.
+    editor.wrap = yaml ? 'off' : 'soft';
     syncHighlight();
     syncGutter();
     updatePreview();
@@ -209,13 +213,52 @@ function syncGutter() {
     row.querySelector('.ln-num').textContent = i + 1;
   });
 
+  syncLineHeights();
   gutter.scrollTop = editor.scrollTop;
 }
+
+// Wrapped lines span several rows: a hidden copy of the text at the textarea's
+// width tells how tall each line is, and the gutter row grows to match.
+function syncLineHeights() {
+  const rows = gutter.children;
+  if (editor.wrap === 'off') {
+    if (measureEl.childElementCount) {
+      measureEl.replaceChildren();
+      for (const row of rows) row.style.marginBottom = '';
+    }
+    return;
+  }
+
+  const lines = editor.value.split('\n');
+  const cs    = getComputedStyle(editor);
+  measureEl.style.width = (editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px';
+
+  while (measureEl.childElementCount < lines.length) measureEl.appendChild(document.createElement('div'));
+  while (measureEl.childElementCount > lines.length) measureEl.lastChild.remove();
+  lines.forEach((l, i) => {
+    const el = measureEl.children[i];
+    if (el.textContent !== l) el.textContent = l;
+  });
+
+  // Read all heights before writing any, so layout runs once.
+  const lineH   = parseFloat(cs.lineHeight);
+  const heights = Array.from(measureEl.children, el => el.offsetHeight);
+  heights.forEach((h, i) => {
+    const extra = Math.max(0, h - lineH);
+    if (rows[i]) rows[i].style.marginBottom = extra ? extra + 'px' : '';
+  });
+}
+
+new ResizeObserver(() => {
+  syncLineHeights();
+  gutter.scrollTop = editor.scrollTop;
+}).observe(editor);
 
 editor.addEventListener('scroll', () => {
   gutter.scrollTop     = editor.scrollTop;
   editorHl.scrollTop   = editor.scrollTop;
   editorHl.scrollLeft  = editor.scrollLeft;
+  syncPreviewScroll();
 });
 
 // ── Editor highlighting ───────────────────────────────────────────────────────
@@ -273,6 +316,15 @@ function updatePreview() {
   previewEl.querySelectorAll('pre code.language-yaml, pre code.language-yml').forEach(code => {
     code.innerHTML = DOMPurify.sanitize(highlightYaml(code.textContent));
   });
+  syncPreviewScroll();
+}
+
+// Proportional: the preview shows the same fraction of the document as the editor.
+function syncPreviewScroll() {
+  if (!previewActive || presenting) return;
+  const range = editor.scrollHeight - editor.clientHeight;
+  const ratio = range > 0 ? editor.scrollTop / range : 0;
+  previewEl.scrollTop = ratio * (previewEl.scrollHeight - previewEl.clientHeight);
 }
 
 function togglePreview() {
@@ -389,6 +441,8 @@ fileInput.addEventListener('change', async () => {
 });
 
 // ── Editor input ──────────────────────────────────────────────────────────────
+editor.addEventListener('keydown', handleEditorKey);
+
 editor.addEventListener('input', () => {
   const t = activeTab();
   if (t) t.content = editor.value;
