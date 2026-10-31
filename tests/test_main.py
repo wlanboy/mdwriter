@@ -196,7 +196,7 @@ def test_write_at_limit(client: TestClient, docs_dir: Path):
 
 def test_if_match_current_version(client: TestClient, docs_dir: Path):
     (docs_dir / "doc.md").write_bytes(b"alt")
-    r = client.post(
+    r = client.put(
         "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
     )
     assert r.status_code == 204
@@ -205,7 +205,7 @@ def test_if_match_current_version(client: TestClient, docs_dir: Path):
 
 def test_if_match_stale_version(client: TestClient, docs_dir: Path):
     (docs_dir / "doc.md").write_bytes(b"fremd")
-    r = client.post(
+    r = client.put(
         "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
     )
     assert r.status_code == 412
@@ -213,7 +213,7 @@ def test_if_match_stale_version(client: TestClient, docs_dir: Path):
 
 
 def test_if_match_deleted_file(client: TestClient, docs_dir: Path):
-    r = client.post(
+    r = client.put(
         "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
     )
     assert r.status_code == 412
