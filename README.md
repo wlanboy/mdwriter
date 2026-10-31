@@ -5,7 +5,7 @@ Ein minimaler, browserbasierter Markdown-Editor mit lokalem Backend.
 ## Features
 
 - **Multi-Tab-Editing** – mehrere Dokumente gleichzeitig öffnen, benennen und schließen
-- **Live-Vorschau** – Markdown wird via [marked.js](https://marked.js.org/) in Echtzeit gerendert
+- **Live-Vorschau** – Markdown wird via [marked.js](https://marked.js.org/) in Echtzeit gerendert und mit [DOMPurify](https://github.com/cure53/DOMPurify) bereinigt
 - **Zeilennummern & Kontext-Menü** – Zeilenleiste mit `+`-Button zum Einfügen von Vorlagen (Überschrift, Code, Tabelle, Link, Bild)
 - **Server-Dateiverwaltung** – Dateien werden auf dem Server gespeichert, geöffnet und gelöscht
 - **Lokaler Import / Download** – `.md`-Dateien vom lokalen Rechner importieren oder herunterladen
