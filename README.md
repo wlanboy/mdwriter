@@ -13,6 +13,7 @@ Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (F
 - **Autosave** – automatisches Speichern 1,5 Sekunden nach der letzten Änderung. Der Punkt am Tab zeigt den Stand: orange = ungespeichert, blau pulsierend = speichert, kein Punkt = gespeichert. Hinweise erscheinen nur bei Fehlern.
 - **Konflikte** – Hat sich die Datei auf dem Server inzwischen geändert, bekommt der Tab ein rotes `!` und der Autosave hält an. Eine Leiste über dem Editor bietet **Vom Server neu laden** (die eigene Fassung lässt sich mit `Ctrl+Z` zurückholen) oder **Überschreiben**. `Ctrl+S` fragt in diesem Fall direkt nach.
 - **Session-Persistenz** – offene Tabs und Inhalte überleben Browser-Neustarts via `localStorage`
+- **Schnellsuche** – `Ctrl+P` sucht Dateien in den Dokumenten und allen ausgewählten Projekten, auch mit Lücken (`apiend` findet `api/endpoints.md`)
 - **Projekt-Explorer** – ausklappbare Seitenleiste mit Markdown- und YAML-Dateien aus ausgewählten Projekten unter `~/git`
 - **YAML-Highlighting** – YAML-Dateien sind schon im Editor eingefärbt, mit Einrückungslinien. Eine Vorschau gibt es für sie nicht, im Präsentationsmodus werden sie aber mit Zeilennummern angezeigt. ` ```yaml `-Blöcke in Markdown werden in der Vorschau ebenfalls eingefärbt.
 - **Präsentationsmodus** – Vollbild-Vorschau ohne Editor und Tabs
@@ -23,6 +24,7 @@ Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (F
 | Kürzel      | Aktion                          |
 |-------------|----------------------------------|
 | `Ctrl+S`    | Speichern (ggf. „Speichern unter") |
+| `Ctrl+P`    | Schnellsuche (`↑`/`↓` wählen, `Enter` öffnet) |
 | `Alt+O`     | Datei vom Server öffnen         |
 | `Alt+I`     | Lokale Datei importieren        |
 | `Alt+D`     | Aktives Dokument herunterladen  |
@@ -31,6 +33,8 @@ Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (F
 | `Alt+C`     | Aktiven Tab schließen           |
 | `Alt+E`     | Explorer ein-/ausblenden        |
 | `Alt+F`     | Präsentationsmodus ein/aus (`Esc` beendet) |
+
+Auf macOS gilt `Option` statt `Alt`. Manche Browser belegen unter Linux und Windows einzelne Alt-Kürzel selbst (`Alt+D` Adressleiste, `Alt+E`/`Alt+F` Menü, in Firefox auch `Alt+S`). Dann geht dasselbe mit `Alt+Shift`, also z. B. `Alt+Shift+D`.
 
 ## Projekt-Explorer
 

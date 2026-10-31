@@ -55,6 +55,7 @@
           <button class="btn-new-tab" id="btnNew" title="Neues Dokument">+</button>
         </div>
         <div class="shortcuts">
+          <span class="sc"><kbd>Ctrl P</kbd> Suchen</span>
           <span class="sc"><kbd>Alt O</kbd> Öffnen</span>
           <span class="sc"><kbd>Alt I</kbd> Importieren</span>
           <span class="sc"><kbd>Alt D</kbd> Download</span>
@@ -120,6 +121,13 @@
     </div>
   </div>
 
+  <div class="modal-overlay quick-overlay" id="quickModal">
+    <div class="modal quick-modal">
+      <input type="text" id="quickInput" class="modal-input" placeholder="Datei suchen …" autocomplete="off" spellcheck="false">
+      <div class="file-list" id="quickList"></div>
+    </div>
+  </div>
+
   <input type="file" id="fileInput" accept=".md" hidden>
   <div class="toast" id="toast"></div>
   <script src="/static/marked.min.js"></script>
@@ -129,6 +137,7 @@
   <script src="/static/editing.js"></script>
   <script src="/static/fileapi.js"></script>
   <script src="/static/explorer.js"></script>
+  <script src="/static/quickopen.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

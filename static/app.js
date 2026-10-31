@@ -424,26 +424,39 @@ function saveActive() {
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+// On macOS Option+O types „ø" (Option+E a dead key), so anything but a letter falls back
+// to the physical key. Taking the letter first keeps layouts like Dvorak working.
+function shortcutKey(e) {
+  if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase();
+  const m = /^Key([A-Z])$/.exec(e.code);
+  return m ? m[1].toLowerCase() : '';
+}
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (presenting) togglePresentation();
     closeCtxMenu();
+    closeQuickOpen();
     openModal.classList.remove('open');
     saveModal.classList.remove('open');
     return;
   }
 
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    saveActive();
+  const key = shortcutKey(e);
+
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    if (key === 's') { e.preventDefault(); saveActive(); }
+    // Ctrl+Shift+P is the browser's private window.
+    if (key === 'p' && !e.shiftKey) { e.preventDefault(); openQuickOpen(); }
     return;
   }
 
-  // Alt+O / Alt+I / Alt+D / Alt+S
+  // Alt+letter; Alt+Shift+letter does the same where the browser keeps Alt+letter for itself.
+  // Windows reports AltGr as Ctrl+Alt, and AltGr+E („€") must stay a character.
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.target.matches('input:not([type=checkbox])')) return;
 
-  switch (e.key.toLowerCase()) {
+  switch (key) {
     case 'o': e.preventDefault(); openFromServer(); break;
     case 'i': e.preventDefault(); fileInput.click(); break;
     case 'd': e.preventDefault(); downloadFile();   break;

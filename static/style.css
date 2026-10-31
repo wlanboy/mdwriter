@@ -575,6 +575,23 @@ kbd {
 .file-item-del:hover { color: #e05252; }
 .file-empty { padding: 8px 4px; color: var(--c-muted); font-size: 13px; }
 
+/* Quick open */
+.quick-overlay { align-items: flex-start; padding-top: 12vh; }
+.quick-modal { width: 560px; max-width: calc(100vw - 32px); padding: 10px; gap: 8px; }
+.qo-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.qo-item:hover { background: var(--c-bg3); }
+.qo-item.selected { background: #37373d; box-shadow: inset 2px 0 0 var(--c-accent); }
+.qo-name { flex-shrink: 0; }
+.qo-dir { color: var(--c-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.qo-item mark { background: none; color: var(--c-accent); font-weight: 600; }
+
 .modal-input {
   background: var(--c-bg3);
   border: 1px solid var(--c-border);

@@ -61,8 +61,21 @@ document.getElementById('btnRefresh').addEventListener('click', () => {
 });
 
 // ── Tree ──────────────────────────────────────────────────────────────────────
-async function loadRoot(project) {
-  exCache.set(project, { loading: true });
+// project → pending load, so the tree and the quick open share one request.
+const exLoads = new Map();
+
+function loadRoot(project) {
+  if (!exLoads.has(project)) {
+    exCache.set(project, { loading: true });
+    exLoads.set(project, fetchRoot(project).finally(() => {
+      exLoads.delete(project);
+      renderTree();
+    }));
+  }
+  return exLoads.get(project);
+}
+
+async function fetchRoot(project) {
   try {
     const url = project === null ? '/api/files'
       : '/api/projects/' + encodeURIComponent(project) + '/tree';
@@ -73,7 +86,6 @@ async function loadRoot(project) {
   } catch (status) {
     exCache.set(project, { error: status === 404 ? 'Nicht gefunden' : 'Fehler beim Laden' });
   }
-  renderTree();
 }
 
 function buildTree(files) {
