@@ -61,7 +61,7 @@ uv sync
 uv run main.py
 ```
 
-Der Editor ist danach unter `http://localhost:8000` erreichbar. Der Server bindet an `0.0.0.0` und hat keine Authentifizierung, ist also im ganzen Netzwerk erreichbar und kann dort Dateien in `DOCS_DIR` und `PROJECTS_DIR` schreiben.
+Der Editor ist danach unter `http://localhost:8063` erreichbar. Der Server bindet an `0.0.0.0` und hat keine Authentifizierung, ist also im ganzen Netzwerk erreichbar und kann dort Dateien in `DOCS_DIR` und `PROJECTS_DIR` schreiben.
 
 Markdown-Dateien werden im Verzeichnis `documents/` gespeichert. Erlaubt sind Namen aus Buchstaben, Ziffern, `_`, `-`, Leerzeichen, `.` und Klammern mit der Endung `.md`. Ein anderes Verzeichnis (z. B. ein Container-Volume) lässt sich über die Umgebungsvariable `DOCS_DIR` setzen:
 
@@ -69,10 +69,21 @@ Markdown-Dateien werden im Verzeichnis `documents/` gespeichert. Erlaubt sind Na
 DOCS_DIR=/data/docs uv run main.py
 ```
 
+## Docker
+
+```bash
+./update.sh
+```
+
+Das Skript macht `git pull`, baut das Image und startet den Container per `docker compose up -d`. Der Editor läuft dann unter `http://localhost:8063`.
+
+Gemountet werden `./documents` als Dokumentverzeichnis und `~/git` als Projektverzeichnis. Ein anderes Projektverzeichnis lässt sich über `PROJECTS_HOST_DIR` setzen. Der Container läuft mit UID/GID des Aufrufers, damit gespeicherte Dateien auf dem Host nicht `root` gehören.
+
 ## API
 
 | Methode   | Pfad                  | Beschreibung                  |
 |-----------|------------------------|-------------------------------|
+| `GET`     | `/api/health`         | `200`, wenn `DOCS_DIR` beschreibbar ist, sonst `503` |
 | `GET`     | `/api/files`          | Liste aller `.md`-Dateien     |
 | `GET`     | `/api/files/{name}`   | Dateiinhalt lesen             |
 | `PUT`     | `/api/files/{name}`   | Datei schreiben / erstellen   |
