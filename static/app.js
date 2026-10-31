@@ -234,7 +234,7 @@ function updatePreview() {
   if (!previewActive) return;
   const t  = activeTab();
   const md = t ? (t.id === activeId ? editor.value : t.content) : '';
-  previewEl.innerHTML = marked.parse(md);
+  previewEl.innerHTML = DOMPurify.sanitize(marked.parse(md));
 }
 
 function togglePreview() {
