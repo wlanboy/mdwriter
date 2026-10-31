@@ -10,7 +10,8 @@ Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (F
 - **Zeilennummern & Kontext-Menü** – Zeilenleiste mit `+`-Button zum Einfügen von Vorlagen (Überschrift, Code-Block als Code, YAML oder Text, Tabelle, Link, Bild)
 - **Server-Dateiverwaltung** – Dateien werden auf dem Server gespeichert, geöffnet und gelöscht
 - **Lokaler Import / Download** – `.md`-Dateien vom lokalen Rechner importieren oder herunterladen
-- **Autosave** – automatisches Speichern 1,5 Sekunden nach der letzten Änderung
+- **Autosave** – automatisches Speichern 1,5 Sekunden nach der letzten Änderung. Der Punkt am Tab zeigt den Stand: orange = ungespeichert, blau pulsierend = speichert, kein Punkt = gespeichert. Hinweise erscheinen nur bei Fehlern.
+- **Konflikte** – Hat sich die Datei auf dem Server inzwischen geändert, bekommt der Tab ein rotes `!` und der Autosave hält an. Eine Leiste über dem Editor bietet **Vom Server neu laden** (die eigene Fassung lässt sich mit `Ctrl+Z` zurückholen) oder **Überschreiben**. `Ctrl+S` fragt in diesem Fall direkt nach.
 - **Session-Persistenz** – offene Tabs und Inhalte überleben Browser-Neustarts via `localStorage`
 - **Projekt-Explorer** – ausklappbare Seitenleiste mit Markdown- und YAML-Dateien aus ausgewählten Projekten unter `~/git`
 - **YAML-Highlighting** – YAML-Dateien sind schon im Editor eingefärbt, mit Einrückungslinien. Eine Vorschau gibt es für sie nicht, im Präsentationsmodus werden sie aber mit Zeilennummern angezeigt. ` ```yaml `-Blöcke in Markdown werden in der Vorschau ebenfalls eingefärbt.
