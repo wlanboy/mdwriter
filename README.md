@@ -44,3 +44,10 @@ Markdown-Dateien werden im Verzeichnis `documents/` gespeichert.
 | `GET`     | `/api/files/{name}`   | Dateiinhalt lesen             |
 | `POST`    | `/api/files/{name}`   | Datei schreiben / erstellen   |
 | `DELETE`  | `/api/files/{name}`   | Datei löschen                 |
+
+`GET` und `POST` liefern einen `ETag` (SHA-256 des Inhalts). `POST` wertet optional aus:
+
+- `If-Match: <etag>` – nur schreiben, wenn die Datei noch diese Version hat, sonst `412`
+- `If-None-Match: *` – nur anlegen, wenn die Datei noch nicht existiert, sonst `412`
+
+Ohne diese Header wird unbedingt überschrieben. Der Body darf höchstens 5 MB groß sein, sonst `413`. Geschrieben wird atomar über eine Temp-Datei und `os.replace`.
