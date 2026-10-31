@@ -3,6 +3,17 @@
 // ── File API ──────────────────────────────────────────────────────────────────
 const VALID_NAME = /^[\w\- .()]+\.md$/;
 
+// Tabs from documents/ have no project; project tabs hold a path relative to it.
+function fileUrl(project, path) {
+  if (!project) return '/api/files/' + encodeURIComponent(path);
+  return '/api/projects/' + encodeURIComponent(project) + '/files/' +
+    path.split('/').map(encodeURIComponent).join('/');
+}
+
+function findFileTab(project, path) {
+  return tabs.find(t => (t.project || null) === project && t.serverPath === path);
+}
+
 // Per-tab queue so a save never sends an ETag that an in-flight save is about to replace,
 // and never targets a path that a pending rename is about to move.
 const saveQueue = new Map();
@@ -60,7 +71,7 @@ async function putFile(t, force) {
     else headers['If-None-Match'] = '*';
   }
   try {
-    const res = await fetch('/api/files/' + encodeURIComponent(t.serverPath), {
+    const res = await fetch(fileUrl(t.project, t.serverPath), {
       method: 'PUT',
       headers,
       body,
@@ -118,7 +129,7 @@ function makeFileItem(name) {
   label.textContent = name;
   label.addEventListener('click', () => {
     openModal.classList.remove('open');
-    loadFile(name);
+    openFile(null, name);
   });
 
   const del = document.createElement('button');
@@ -143,7 +154,7 @@ async function deleteServerFile(name, row) {
       if (!fileList.children.length) {
         fileList.innerHTML = '<div class="file-empty">Keine Dateien vorhanden</div>';
       }
-      const openTab = tabs.find(t => t.serverPath === name);
+      const openTab = findFileTab(null, name);
       if (openTab) {
         openTab.serverPath = null;
         openTab.etag = null;
@@ -159,26 +170,46 @@ async function deleteServerFile(name, row) {
   }
 }
 
-async function loadFile(name) {
-  const existing = tabs.find(t => t.serverPath === name);
+function tabName(path) {
+  return path.split('/').pop().replace(/\.md$/i, '');
+}
+
+// Opens the file in a new tab; a file that is already open is only brought to the front.
+async function openFile(project, path) {
+  const existing = findFileTab(project, path);
   if (existing) { activateTab(existing.id); return; }
+
+  let content, tag;
   try {
-    const res = await fetch('/api/files/' + encodeURIComponent(name));
-    if (!res.ok) { toast('Datei nicht gefunden'); return; }
-    const content = await res.text();
-    const tab = makeTab(name.replace(/\.md$/i, ''), content, name);
-    tab.etag  = res.headers.get('ETag');
-    tab.saved = true;
-
-    const cur = activeTab();
-    if (tabs.length === 1 && cur && !cur.serverPath && cur.content.trim() === '') {
-      tabs.splice(tabs.indexOf(cur), 1);
-      activeId = 0;
+    const res = await fetch(fileUrl(project, path));
+    if (!res.ok) {
+      toast(res.status === 404 ? 'Datei nicht gefunden' : 'Fehler beim Öffnen (' + res.status + ')');
+      return;
     }
-
-    openTab(tab);
+    content = await res.text();
+    tag     = res.headers.get('ETag');
   } catch {
     toast('Fehler beim Öffnen');
+    return;
+  }
+
+  const fields = {
+    name: tabName(path), content, serverPath: path, project,
+    etag: tag, saved: true, conflict: false,
+  };
+  // A second click may have opened it while the request was pending.
+  const opened = findFileTab(project, path);
+  if (opened) { activateTab(opened.id); return; }
+
+  // An empty, never-saved tab is replaced instead of left behind.
+  const cur = activeTab();
+  if (cur && !cur.serverPath && cur.content.trim() === '') {
+    Object.assign(cur, fields);
+    // The editor still shows the old file; keep activateTab from copying it back.
+    if (cur.id === activeId) activeId = 0;
+    activateTab(cur.id);
+  } else {
+    openTab(Object.assign(makeTab(), fields));
   }
 }
 
@@ -186,11 +217,12 @@ function downloadFile() {
   const t = activeTab();
   if (!t) return;
   if (t.id === activeId) t.content = editor.value;
-  const blob = new Blob([t.content], { type: 'text/markdown' });
+  const yaml = isYamlPath(t.serverPath);
+  const blob = new Blob([t.content], { type: yaml ? 'application/yaml' : 'text/markdown' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = t.serverPath || (t.name + '.md');
+  a.download = t.serverPath ? t.serverPath.split('/').pop() : (t.name + '.md');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -217,9 +249,10 @@ async function confirmSaveAs() {
     toast('Ungültiger Dateiname');
     return;
   }
-  const prev = { serverPath: t.serverPath, name: t.name, etag: t.etag };
-  if (name !== t.serverPath) t.etag = null;
+  const prev = { serverPath: t.serverPath, project: t.project, name: t.name, etag: t.etag };
+  if (name !== t.serverPath || t.project) t.etag = null;
   t.serverPath = name;
+  t.project    = null;
   t.name       = name.replace(/\.md$/, '');
   saveModal.classList.remove('open');
   renderTabs();

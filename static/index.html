@@ -8,29 +8,75 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <div class="tabs" id="tabs">
-      <button class="btn-new-tab" id="btnNew" title="Neues Dokument">+</button>
-    </div>
-    <div class="shortcuts">
-      <span class="sc"><kbd>Alt O</kbd> Öffnen</span>
-      <span class="sc"><kbd>Alt I</kbd> Importieren</span>
-      <span class="sc"><kbd>Alt D</kbd> Download</span>
-      <span class="sc"><kbd>Alt S</kbd> Speichern</span>
-      <span class="sc"><kbd>Alt P</kbd> Vorschau</span>
-      <span class="sc"><kbd>Alt C</kbd> Schließen</span>
-    </div>
-  </header>
+  <div class="app">
+    <nav class="activity-bar">
+      <button class="activity-btn" id="btnExplorer" title="Explorer (Alt+E)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3H7a2 2 0 0 0-2 2v12"/><path d="M9 7h6l4 4v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z"/><path d="M15 7v4h4"/></svg>
+      </button>
+      <button class="activity-btn activity-bottom" id="btnPresent" title="Präsentation (Alt+F)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/></svg>
+      </button>
+    </nav>
 
-  <div class="workspace" id="workspace">
-    <div class="gutter" id="gutter"></div>
-    <textarea id="editor"
-      spellcheck="false"
-      autocomplete="off"
-      autocorrect="off"
-      autocapitalize="off"
-      wrap="off"></textarea>
-    <div class="preview-pane" id="preview"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-view" id="explorerView">
+        <div class="sidebar-head">
+          <span class="sidebar-title">Explorer</span>
+          <button class="icon-btn" id="btnRefresh" title="Neu laden">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
+          </button>
+          <button class="icon-btn" id="btnSettings" title="Projekte auswählen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+          </button>
+        </div>
+        <div class="type-filter" id="typeFilter">
+          <label><input type="checkbox" value="md"> Markdown</label>
+          <label><input type="checkbox" value="yaml"> YAML</label>
+        </div>
+        <div class="tree" id="tree"></div>
+      </div>
+
+      <div class="sidebar-view" id="settingsView" hidden>
+        <div class="sidebar-head">
+          <button class="icon-btn" id="btnBack" title="Zurück zum Explorer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="sidebar-title">Projekte</span>
+        </div>
+        <input type="search" id="projectSearch" class="sidebar-search" placeholder="Projekte filtern …" autocomplete="off" spellcheck="false">
+        <div class="project-list" id="projectList"></div>
+        <div class="sidebar-foot" id="projectCount"></div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header>
+        <div class="tabs" id="tabs">
+          <button class="btn-new-tab" id="btnNew" title="Neues Dokument">+</button>
+        </div>
+        <div class="shortcuts">
+          <span class="sc"><kbd>Alt O</kbd> Öffnen</span>
+          <span class="sc"><kbd>Alt I</kbd> Importieren</span>
+          <span class="sc"><kbd>Alt D</kbd> Download</span>
+          <span class="sc"><kbd>Alt S</kbd> Speichern</span>
+          <span class="sc"><kbd>Alt P</kbd> Vorschau</span>
+          <span class="sc"><kbd>Alt C</kbd> Schließen</span>
+          <span class="sc"><kbd>Alt E</kbd> Explorer</span>
+          <span class="sc"><kbd>Alt F</kbd> Präsentation</span>
+        </div>
+      </header>
+
+      <div class="workspace" id="workspace">
+        <div class="gutter" id="gutter"></div>
+        <textarea id="editor"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          wrap="off"></textarea>
+        <div class="preview-pane" id="preview" tabindex="-1"></div>
+      </div>
+    </div>
   </div>
 
   <div class="ctx-menu" id="ctxMenu">
@@ -68,8 +114,10 @@
   <div class="toast" id="toast"></div>
   <script src="/static/marked.min.js"></script>
   <script src="/static/purify.min.js"></script>
+  <script src="/static/yaml.js"></script>
   <script src="/static/template.js"></script>
   <script src="/static/fileapi.js"></script>
+  <script src="/static/explorer.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

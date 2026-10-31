@@ -14,6 +14,203 @@
   --gutter-w:  54px;
   --line-h:    21px;
   --pad-t:     14px;
+  --activity-w: 48px;
+  --sidebar-w:  270px;
+  --y-key:     #9cdcfe;
+  --y-str:     #ce9178;
+  --y-num:     #b5cea8;
+  --y-bool:    #569cd6;
+  --y-com:     #6a9955;
+  --y-anchor:  #c586c0;
+  --y-punct:   #808080;
+  --y-guide:   #404040;
+}
+
+[hidden] { display: none !important; }
+
+/* ── App layout ─────────────────────────────────────── */
+.app {
+  display: flex;
+  height: 100vh;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Activity bar ───────────────────────────────────── */
+.activity-bar {
+  width: var(--activity-w);
+  flex-shrink: 0;
+  background: #181818;
+  border-right: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.activity-btn {
+  width: var(--activity-w);
+  height: var(--activity-w);
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--c-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.1s;
+}
+.activity-btn:hover { color: var(--c-text); }
+.activity-btn.active { color: var(--c-text); border-left-color: var(--c-accent); }
+.activity-bottom { margin-top: auto; }
+.activity-btn svg, .icon-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.activity-btn svg { width: 24px; height: 24px; }
+
+/* ── Sidebar ────────────────────────────────────────── */
+.sidebar {
+  display: none;
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--c-bg2);
+  border-right: 1px solid var(--c-border);
+  user-select: none;
+}
+.sidebar.open { display: block; }
+.sidebar-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sidebar-head {
+  height: var(--header-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px 0 12px;
+}
+.sidebar-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+#settingsView .sidebar-head { padding-left: 4px; }
+.icon-btn {
+  width: 26px; height: 26px;
+  background: none; border: none;
+  border-radius: 4px;
+  color: var(--c-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.icon-btn:hover { color: var(--c-text); background: var(--c-bg3); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.type-filter {
+  display: flex;
+  gap: 14px;
+  padding: 2px 12px 8px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 12px;
+}
+.type-filter label, .project-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.type-filter input, .project-item input {
+  accent-color: var(--c-accent);
+  margin: 0;
+}
+
+.tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0 12px;
+}
+.tree-row, .tree-hint {
+  --depth: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 calc(8px + var(--depth) * 12px);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.tree-row { cursor: pointer; }
+.tree-row:hover { background: var(--c-bg3); }
+.tree-row.active { background: #37373d; box-shadow: inset 2px 0 0 var(--c-accent); }
+.tree-root { font-weight: 600; margin-top: 2px; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; }
+.tree-hint { color: var(--c-muted); font-size: 12px; font-style: italic; white-space: normal; height: auto; min-height: 22px; }
+.tree-chevron {
+  width: 16px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.tree-chevron::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-right: 1.5px solid var(--c-muted);
+  border-bottom: 1.5px solid var(--c-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.1s;
+}
+.tree-chevron.open::before { transform: rotate(45deg); }
+/* Files sit where a folder's chevron would be. */
+.tree-file { padding-left: calc(10px + var(--depth) * 12px); }
+.ficon {
+  width: 26px;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.ficon.md   { color: var(--c-accent); }
+.ficon.yaml { color: var(--y-anchor); }
+
+.sidebar-search {
+  margin: 0 10px 8px;
+  background: var(--c-bg3);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: var(--c-text);
+  font-size: 13px;
+  outline: none;
+}
+.sidebar-search:focus { border-color: var(--c-accent); }
+.project-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 8px;
+}
+.project-item {
+  padding: 3px 12px;
+  font-size: 13px;
+}
+.project-item:hover { background: var(--c-bg3); }
+.project-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-foot {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--c-border);
+  font-size: 12px;
+  color: var(--c-muted);
 }
 
 html, body {
@@ -137,7 +334,8 @@ kbd {
 /* ── Workspace ──────────────────────────────────────── */
 .workspace {
   display: flex;
-  height: calc(100vh - var(--header-h));
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -420,6 +618,57 @@ kbd {
 }
 
 .preview-pane img { max-width: 100%; border-radius: 4px; }
+.preview-pane:focus { outline: none; }
+
+/* YAML highlighting (files and ```yaml blocks) */
+.y-line { display: block; min-height: 1.5em; }
+.y-ind {
+  background-image: repeating-linear-gradient(to right, var(--y-guide) 0 1px, transparent 1px 2ch);
+}
+.y-key    { color: var(--y-key); }
+.y-str    { color: var(--y-str); }
+.y-num    { color: var(--y-num); }
+.y-bool   { color: var(--y-bool); }
+.y-com    { color: var(--y-com); font-style: italic; }
+.y-anchor { color: var(--y-anchor); }
+.y-tag    { color: var(--y-anchor); font-style: italic; }
+.y-block  { color: var(--y-anchor); }
+.y-doc    { color: var(--y-anchor); font-weight: 600; }
+.y-dash, .y-punct { color: var(--y-punct); }
+
+.preview-pane pre.yaml-file {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  overflow-x: auto;
+  counter-reset: yline;
+}
+.preview-pane pre.yaml-file code { font-size: 14px; line-height: 1.5; }
+.yaml-file .y-line { counter-increment: yline; }
+.yaml-file .y-line::before {
+  content: counter(yline);
+  display: inline-block;
+  width: 3.5ch;
+  margin-right: 2ch;
+  text-align: right;
+  color: var(--c-muted);
+  user-select: none;
+}
+
+/* ── Presentation ───────────────────────────────────── */
+.presenting header,
+.presenting .gutter,
+.presenting #editor { display: none; }
+.presenting .workspace .preview-pane {
+  display: block;
+  border-left: none;
+  font-size: 22px;
+  padding: 56px max(56px, calc((100% - 1200px) / 2));
+}
+.presenting .preview-pane pre code,
+.presenting .preview-pane pre.yaml-file code { font-size: 0.8em; }
+.presenting .preview-pane table { font-size: 0.85em; }
 
 /* ── Toast ──────────────────────────────────────────── */
 .toast {

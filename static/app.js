@@ -22,6 +22,7 @@ let nextId        = 1;
 let ctxLine       = -1;
 let toastTmr      = null;
 let previewActive = false;
+let presenting    = false;
 
 // ── Local store ───────────────────────────────────────────────────────────────
 const STORE_KEY = 'mdwriter';
@@ -52,7 +53,7 @@ function restoreState() {
 
 // ── Tab helpers ───────────────────────────────────────────────────────────────
 function makeTab(name = 'Unbenannt', content = '', serverPath = null) {
-  return { id: nextId++, name, content, serverPath, etag: null, conflict: false, saved: false };
+  return { id: nextId++, name, content, serverPath, project: null, etag: null, conflict: false, saved: false };
 }
 
 function tab_(id) { return tabs.find(t => t.id === id); }
@@ -110,6 +111,7 @@ function renderTabs() {
   tabs.forEach(t => {
     const btn = document.createElement('button');
     btn.className = 'tab' + (t.id === activeId ? ' active' : '') + (!t.saved ? ' unsaved' : '');
+    if (t.project) btn.title = t.project + '/' + t.serverPath;
 
     const dot = document.createElement('span');
     dot.className = 'tab-dot';
@@ -118,7 +120,8 @@ function renderTabs() {
     name.className = 'tab-name';
     name.textContent = t.name;
     name.addEventListener('click', e => {
-      if (t.id !== activeId) return;
+      // Project files keep their repo name; only documents/ files can be renamed here.
+      if (t.id !== activeId || t.project) return;
       e.stopPropagation();
       startRename(t, name);
     });
@@ -133,6 +136,7 @@ function renderTabs() {
     btn.addEventListener('click', () => activateTab(t.id));
     tabsEl.insertBefore(btn, btnNew);
   });
+  syncExplorer(activeTab());
   saveState();
 }
 
@@ -239,10 +243,18 @@ document.addEventListener('click', e => {
 
 // ── Preview ───────────────────────────────────────────────────────────────────
 function updatePreview() {
-  if (!previewActive) return;
-  const t  = activeTab();
-  const md = t ? (t.id === activeId ? editor.value : t.content) : '';
-  previewEl.innerHTML = DOMPurify.sanitize(marked.parse(md));
+  if (!previewActive && !presenting) return;
+  const t    = activeTab();
+  const text = t ? (t.id === activeId ? editor.value : t.content) : '';
+  if (t && isYamlPath(t.serverPath)) {
+    previewEl.innerHTML = DOMPurify.sanitize(
+      '<pre class="yaml-file"><code>' + highlightYaml(text) + '</code></pre>');
+    return;
+  }
+  previewEl.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  previewEl.querySelectorAll('pre code.language-yaml, pre code.language-yml').forEach(code => {
+    code.innerHTML = DOMPurify.sanitize(highlightYaml(code.textContent));
+  });
 }
 
 function togglePreview() {
@@ -250,6 +262,26 @@ function togglePreview() {
   workspace.classList.toggle('preview-mode', previewActive);
   if (previewActive) updatePreview();
 }
+
+// ── Presentation ──────────────────────────────────────────────────────────────
+function togglePresentation() {
+  presenting = !presenting;
+  document.body.classList.toggle('presenting', presenting);
+  if (presenting) {
+    updatePreview();
+    previewEl.focus();
+    document.documentElement.requestFullscreen?.().catch(() => { /* not allowed: stay windowed */ });
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+// Esc in fullscreen is swallowed by the browser; leaving fullscreen ends the presentation.
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && presenting) togglePresentation();
+});
+
+document.getElementById('btnPresent').addEventListener('click', togglePresentation);
 
 // ── Autosave ──────────────────────────────────────────────────────────────────
 // One timer per tab, so switching tabs neither redirects nor cancels a pending save.
@@ -272,6 +304,7 @@ function cancelAutosave(id) {
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (presenting) togglePresentation();
     closeCtxMenu();
     openModal.classList.remove('open');
     saveModal.classList.remove('open');
@@ -289,7 +322,7 @@ document.addEventListener('keydown', e => {
 
   // Alt+O / Alt+I / Alt+D / Alt+S
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.matches('input:not([type=checkbox])')) return;
 
   switch (e.key.toLowerCase()) {
     case 'o': e.preventDefault(); openFromServer(); break;
@@ -297,6 +330,8 @@ document.addEventListener('keydown', e => {
     case 'd': e.preventDefault(); downloadFile();   break;
     case 'p': e.preventDefault(); togglePreview();  break;
     case 'c': e.preventDefault(); closeTab(activeId); break;
+    case 'e': e.preventDefault(); toggleExplorer();   break;
+    case 'f': e.preventDefault(); togglePresentation(); break;
     case 's': {
       e.preventDefault();
       const t = activeTab();
