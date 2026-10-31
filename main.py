@@ -100,6 +100,15 @@ def write_checked(
     return etag(data)
 
 
+def rename_checked(src: Path, dst: Path) -> None:
+    with _write_lock:
+        if not src.exists():
+            raise HTTPException(404)
+        if dst.exists():
+            raise HTTPException(409, "Target already exists")
+        src.rename(dst)
+
+
 app = FastAPI()
 
 
@@ -141,6 +150,15 @@ async def write_file(name: str, request: Request, response: Response):
         request.headers.get("if-match"),
         request.headers.get("if-none-match"),
     )
+
+
+@app.post("/api/files/{name}/rename", status_code=204)
+async def rename_file(name: str, to: str):
+    src = safe_path(name)
+    dst = safe_path(to)
+    if src == dst:
+        return
+    await run_in_threadpool(rename_checked, src, dst)
 
 
 @app.delete("/api/files/{name}", status_code=204)

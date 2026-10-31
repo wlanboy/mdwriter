@@ -273,6 +273,53 @@ def test_delete_invalid_name(client: TestClient):
     assert client.delete("/api/files/doc.txt").status_code == 400
 
 
+# --- POST /api/files/{name}/rename ---
+
+
+def test_rename_file(client: TestClient, docs_dir: Path):
+    (docs_dir / "old.md").write_text("x", "utf-8")
+    r = client.post("/api/files/old.md/rename", params={"to": "new.md"})
+    assert r.status_code == 204
+    assert not (docs_dir / "old.md").exists()
+    assert (docs_dir / "new.md").read_text("utf-8") == "x"
+
+
+def test_rename_keeps_etag(client: TestClient, docs_dir: Path):
+    (docs_dir / "old.md").write_text("x", "utf-8")
+    tag = client.get("/api/files/old.md").headers["etag"]
+    client.post("/api/files/old.md/rename", params={"to": "new.md"})
+    assert client.get("/api/files/new.md").headers["etag"] == tag
+
+
+def test_rename_same_name(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_text("x", "utf-8")
+    r = client.post("/api/files/doc.md/rename", params={"to": "doc.md"})
+    assert r.status_code == 204
+    assert (docs_dir / "doc.md").read_text("utf-8") == "x"
+
+
+def test_rename_missing_source(client: TestClient):
+    r = client.post("/api/files/missing.md/rename", params={"to": "new.md"})
+    assert r.status_code == 404
+
+
+def test_rename_target_exists(client: TestClient, docs_dir: Path):
+    (docs_dir / "a.md").write_text("a", "utf-8")
+    (docs_dir / "b.md").write_text("b", "utf-8")
+    r = client.post("/api/files/a.md/rename", params={"to": "b.md"})
+    assert r.status_code == 409
+    assert (docs_dir / "a.md").read_text("utf-8") == "a"
+    assert (docs_dir / "b.md").read_text("utf-8") == "b"
+
+
+@pytest.mark.parametrize("to", ["new.txt", "../new.md", ""])
+def test_rename_invalid_target(client: TestClient, docs_dir: Path, to: str):
+    (docs_dir / "doc.md").write_text("x", "utf-8")
+    r = client.post("/api/files/doc.md/rename", params={"to": to})
+    assert r.status_code in (400, 422)
+    assert (docs_dir / "doc.md").exists()
+
+
 # --- static ---
 
 
