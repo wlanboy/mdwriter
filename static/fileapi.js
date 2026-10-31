@@ -61,7 +61,7 @@ async function putFile(t, force) {
   }
   try {
     const res = await fetch('/api/files/' + encodeURIComponent(t.serverPath), {
-      method: 'POST',
+      method: 'PUT',
       headers,
       body,
     });
