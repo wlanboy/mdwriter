@@ -13,12 +13,18 @@ from starlette.concurrency import run_in_threadpool
 
 BASE_DIR = Path(__file__).resolve().parent
 DOCS_DIR = Path(os.environ.get("DOCS_DIR", BASE_DIR / "documents"))
+PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path.home() / "git"))
 STATIC_DIR = BASE_DIR / "static"
 DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
 _VALID = re.compile(r"^[\w\- .()]+\.md$")
 
 MAX_BYTES = 5 * 1024 * 1024
+
+PROJECT_EXTS = {".md", ".yaml", ".yml"}
+# Build output and dependency trees; hidden dirs (.git, .venv, …) are skipped anyway.
+SKIP_DIRS = {"node_modules", "target", "dist", "build", "venv", "__pycache__"}
+MAX_TREE_FILES = 5000
 
 # Serializes precondition check + write so two requests can't both pass If-Match.
 _write_lock = threading.Lock()
@@ -43,6 +49,49 @@ def safe_path(name: str) -> Path:
     if not p.is_relative_to(DOCS_DIR.resolve()):
         raise HTTPException(400, "Path traversal detected")
     return p
+
+
+def _visible(name: str) -> bool:
+    return bool(name) and not name.startswith(".") and name not in SKIP_DIRS
+
+
+def project_dir(name: str) -> Path:
+    if not _visible(name) or "/" in name or "\\" in name:
+        raise HTTPException(400, "Invalid project")
+    p = PROJECTS_DIR / name
+    if not p.is_dir():
+        raise HTTPException(404, "Project not found")
+    return p
+
+
+def project_path(project: str, rel: str) -> Path:
+    root = project_dir(project).resolve()
+    *dirs, filename = rel.split("/")
+    if (
+        not all(_visible(d) for d in dirs)
+        or not filename
+        or filename.startswith(".")
+        or Path(filename).suffix.lower() not in PROJECT_EXTS
+    ):
+        raise HTTPException(400, "Invalid path")
+    p = (root / rel).resolve()
+    if not p.is_relative_to(root):
+        raise HTTPException(400, "Path traversal detected")
+    return p
+
+
+def list_tree(root: Path) -> tuple[list[str], bool]:
+    files: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if _visible(d))
+        base = Path(dirpath).relative_to(root)
+        for f in sorted(filenames):
+            if f.startswith(".") or Path(f).suffix.lower() not in PROJECT_EXTS:
+                continue
+            files.append((base / f).as_posix())
+            if len(files) >= MAX_TREE_FILES:
+                return sorted(files), True
+    return sorted(files), False
 
 
 def etag(data: bytes) -> str:
@@ -109,6 +158,33 @@ def rename_checked(src: Path, dst: Path) -> None:
         src.rename(dst)
 
 
+async def read_text(p: Path) -> PlainTextResponse:
+    try:
+        data = await run_in_threadpool(p.read_bytes)
+    except FileNotFoundError, IsADirectoryError:
+        raise HTTPException(404)
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "File is not valid UTF-8")
+    return PlainTextResponse(text, headers={"ETag": etag(data)})
+
+
+async def write_text(p: Path, request: Request, response: Response) -> None:
+    data = await read_body(request)
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "Body must be valid UTF-8")
+    response.headers["ETag"] = await run_in_threadpool(
+        write_checked,
+        p,
+        data,
+        request.headers.get("if-match"),
+        request.headers.get("if-none-match"),
+    )
+
+
 app = FastAPI()
 
 
@@ -128,29 +204,12 @@ async def list_files():
 
 @app.get("/api/files/{name}")
 async def read_file(name: str):
-    p = safe_path(name)
-    try:
-        data = await run_in_threadpool(p.read_bytes)
-    except FileNotFoundError:
-        raise HTTPException(404)
-    return PlainTextResponse(data.decode("utf-8"), headers={"ETag": etag(data)})
+    return await read_text(safe_path(name))
 
 
 @app.put("/api/files/{name}", status_code=204)
 async def write_file(name: str, request: Request, response: Response):
-    p = safe_path(name)
-    data = await read_body(request)
-    try:
-        data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(400, "Body must be valid UTF-8")
-    response.headers["ETag"] = await run_in_threadpool(
-        write_checked,
-        p,
-        data,
-        request.headers.get("if-match"),
-        request.headers.get("if-none-match"),
-    )
+    await write_text(safe_path(name), request, response)
 
 
 @app.post("/api/files/{name}/rename", status_code=204)
@@ -169,6 +228,42 @@ async def delete_file(name: str):
         await run_in_threadpool(p.unlink)
     except FileNotFoundError:
         raise HTTPException(404)
+
+
+@app.get("/api/projects")
+async def list_projects():
+    def scan() -> list[str]:
+        if not PROJECTS_DIR.is_dir():
+            return []
+        return sorted(
+            d.name for d in PROJECTS_DIR.iterdir() if d.is_dir() and _visible(d.name)
+        )
+
+    return await run_in_threadpool(scan)
+
+
+@app.get("/api/projects/{project}/tree")
+async def project_tree(project: str):
+    files, truncated = await run_in_threadpool(
+        list_tree, project_dir(project).resolve()
+    )
+    return {"files": files, "truncated": truncated}
+
+
+@app.get("/api/projects/{project}/files/{path:path}")
+async def read_project_file(project: str, path: str):
+    return await read_text(project_path(project, path))
+
+
+@app.put("/api/projects/{project}/files/{path:path}", status_code=204)
+async def write_project_file(
+    project: str, path: str, request: Request, response: Response
+):
+    p = project_path(project, path)
+    # Only files inside existing folders; the editor never creates directories.
+    if not p.parent.is_dir():
+        raise HTTPException(404, "Folder not found")
+    await write_text(p, request, response)
 
 
 @app.get("/")

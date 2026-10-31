@@ -16,8 +16,28 @@ def docs_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
+def projects_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "git"
+    root.mkdir()
+    monkeypatch.setattr(main, "PROJECTS_DIR", root)
+    return root
+
+
+@pytest.fixture
 def client(docs_dir: Path) -> TestClient:
     return TestClient(main.app)
+
+
+@pytest.fixture
+def repo(projects_dir: Path) -> Path:
+    r = projects_dir / "repo"
+    (r / "docs").mkdir(parents=True)
+    (r / "README.md").write_text("# Repo", "utf-8")
+    (r / "docs" / "talk.md").write_text("# Talk", "utf-8")
+    (r / "docs" / "values.yaml").write_text("a: 1", "utf-8")
+    (r / "ci.yml").write_text("b: 2", "utf-8")
+    (r / "main.py").write_text("x", "utf-8")
+    return r
 
 
 # --- safe_path ---
@@ -59,9 +79,7 @@ def test_safe_path_rejects_invalid_names(docs_dir: Path, name: str):
     assert exc.value.status_code == 400
 
 
-def test_safe_path_rejects_sibling_dir(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_safe_path_rejects_sibling_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # A prefix check would accept documents2/ as inside documents/.
     docs = tmp_path / "documents"
     (tmp_path / "documents2").mkdir()
@@ -335,6 +353,143 @@ def test_rename_invalid_target(client: TestClient, docs_dir: Path, to: str):
     r = client.post("/api/files/doc.md/rename", params={"to": to})
     assert r.status_code in (400, 422)
     assert (docs_dir / "doc.md").exists()
+
+
+# --- GET /api/projects ---
+
+
+def test_list_projects(client: TestClient, projects_dir: Path):
+    for name in ["b", "a", ".hidden", "node_modules"]:
+        (projects_dir / name).mkdir()
+    (projects_dir / "file.md").write_text("x", "utf-8")
+    assert client.get("/api/projects").json() == ["a", "b"]
+
+
+def test_list_projects_missing_root(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(main, "PROJECTS_DIR", tmp_path / "nope")
+    assert client.get("/api/projects").json() == []
+
+
+# --- GET /api/projects/{project}/tree ---
+
+
+def test_project_tree(client: TestClient, repo: Path):
+    r = client.get("/api/projects/repo/tree")
+    assert r.status_code == 200
+    assert r.json() == {
+        "files": ["README.md", "ci.yml", "docs/talk.md", "docs/values.yaml"],
+        "truncated": False,
+    }
+
+
+def test_project_tree_skips_hidden_and_build_dirs(client: TestClient, repo: Path):
+    for d in [".git", "node_modules", "target", "docs/.cache"]:
+        (repo / d).mkdir()
+        (repo / d / "x.md").write_text("x", "utf-8")
+    (repo / ".hidden.md").write_text("x", "utf-8")
+    files = client.get("/api/projects/repo/tree").json()["files"]
+    assert files == ["README.md", "ci.yml", "docs/talk.md", "docs/values.yaml"]
+
+
+def test_project_tree_truncates(
+    client: TestClient, repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(main, "MAX_TREE_FILES", 2)
+    body = client.get("/api/projects/repo/tree").json()
+    assert len(body["files"]) == 2
+    assert body["truncated"] is True
+
+
+def test_project_tree_missing(client: TestClient, projects_dir: Path):
+    assert client.get("/api/projects/nope/tree").status_code == 404
+
+
+@pytest.mark.parametrize("name", [".git", "..", "node_modules"])
+def test_project_tree_invalid_name(client: TestClient, projects_dir: Path, name: str):
+    (projects_dir / ".git").mkdir()
+    (projects_dir / "node_modules").mkdir()
+    assert client.get(f"/api/projects/{name}/tree").status_code in (400, 404)
+
+
+# --- /api/projects/{project}/files/{path} ---
+
+
+def test_read_project_file(client: TestClient, repo: Path):
+    r = client.get("/api/projects/repo/files/docs/values.yaml")
+    assert r.status_code == 200
+    assert r.text == "a: 1"
+    assert r.headers["etag"] == main.etag(b"a: 1")
+
+
+def test_read_project_file_missing(client: TestClient, repo: Path):
+    assert client.get("/api/projects/repo/files/docs/nope.md").status_code == 404
+
+
+def test_read_project_file_not_utf8(client: TestClient, repo: Path):
+    (repo / "bin.md").write_bytes(b"\xff\xfe")
+    assert client.get("/api/projects/repo/files/bin.md").status_code == 400
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "main.py",
+        "../repo/README.md",
+        "docs/../../README.md",
+        ".git/config.md",
+        "node_modules/x.md",
+        "docs/.secret.md",
+        "docs/",
+    ],
+)
+def test_project_path_rejects(repo: Path, path: str):
+    with pytest.raises(HTTPException) as exc:
+        main.project_path("repo", path)
+    assert exc.value.status_code == 400
+
+
+def test_project_path_rejects_symlink_escape(repo: Path, tmp_path: Path):
+    (tmp_path / "outside.md").write_text("x", "utf-8")
+    (repo / "link.md").symlink_to(tmp_path / "outside.md")
+    with pytest.raises(HTTPException) as exc:
+        main.project_path("repo", "link.md")
+    assert exc.value.status_code == 400
+
+
+def test_write_project_file(client: TestClient, repo: Path):
+    tag = main.etag(b"# Talk")
+    r = client.put(
+        "/api/projects/repo/files/docs/talk.md",
+        content=b"# Neu",
+        headers={"If-Match": tag},
+    )
+    assert r.status_code == 204
+    assert r.headers["etag"] == main.etag(b"# Neu")
+    assert (repo / "docs" / "talk.md").read_text("utf-8") == "# Neu"
+
+
+def test_write_project_file_stale(client: TestClient, repo: Path):
+    r = client.put(
+        "/api/projects/repo/files/docs/talk.md",
+        content=b"# Neu",
+        headers={"If-Match": main.etag(b"alt")},
+    )
+    assert r.status_code == 412
+    assert (repo / "docs" / "talk.md").read_text("utf-8") == "# Talk"
+
+
+def test_write_project_file_missing_folder(client: TestClient, repo: Path):
+    r = client.put("/api/projects/repo/files/new/x.md", content=b"x")
+    assert r.status_code == 404
+    assert not (repo / "new").exists()
+
+
+def test_write_project_file_invalid_ext(client: TestClient, repo: Path):
+    r = client.put("/api/projects/repo/files/main.py", content=b"evil")
+    assert r.status_code == 400
+    assert (repo / "main.py").read_text("utf-8") == "x"
 
 
 # --- static ---
