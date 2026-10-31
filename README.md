@@ -34,7 +34,11 @@ uv run main.py
 
 Der Editor ist danach unter `http://localhost:8000` erreichbar.
 
-Markdown-Dateien werden im Verzeichnis `documents/` gespeichert.
+Markdown-Dateien werden im Verzeichnis `documents/` gespeichert. Ein anderes Verzeichnis (z. B. ein Container-Volume) lässt sich über die Umgebungsvariable `DOCS_DIR` setzen:
+
+```bash
+DOCS_DIR=/data/docs uv run main.py
+```
 
 ## API
 
@@ -42,10 +46,10 @@ Markdown-Dateien werden im Verzeichnis `documents/` gespeichert.
 |-----------|------------------------|-------------------------------|
 | `GET`     | `/api/files`          | Liste aller `.md`-Dateien     |
 | `GET`     | `/api/files/{name}`   | Dateiinhalt lesen             |
-| `POST`    | `/api/files/{name}`   | Datei schreiben / erstellen   |
+| `PUT`     | `/api/files/{name}`   | Datei schreiben / erstellen   |
 | `DELETE`  | `/api/files/{name}`   | Datei löschen                 |
 
-`GET` und `POST` liefern einen `ETag` (SHA-256 des Inhalts). `POST` wertet optional aus:
+`GET` und `PUT` liefern einen `ETag` (SHA-256 des Inhalts). `PUT` wertet optional aus:
 
 - `If-Match: <etag>` – nur schreiben, wenn die Datei noch diese Version hat, sonst `412`
 - `If-None-Match: *` – nur anlegen, wenn die Datei noch nicht existiert, sonst `412`
