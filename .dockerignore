@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+documents
+tests
+todo.txt
+Dockerfile
+docker-compose.yml
+update.sh
