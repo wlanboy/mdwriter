@@ -28,6 +28,8 @@ LABEL org.opencontainers.image.title="mdwriter" \
 
 WORKDIR /app
 COPY --from=build /app /app
+# Mount points; without them a run without volumes fails on mkdir as non-root
+RUN mkdir -p /data/docs /projects && chown 1000:1000 /data/docs
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
