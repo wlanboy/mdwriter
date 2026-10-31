@@ -1,0 +1,24 @@
+services:
+  mdwriter:
+    build: .
+    image: mdwriter:latest
+    container_name: mdwriter
+    restart: unless-stopped
+    # Same UID/GID as the host user, otherwise saved files end up owned by someone else
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    ports:
+      - "8063:8063"
+    environment:
+      DOCS_DIR: /data/docs
+      PROJECTS_DIR: /projects
+    volumes:
+      - ./documents:/data/docs
+      - ${PROJECTS_HOST_DIR:-${HOME}/git}:/projects
+    healthcheck:
+      # urlopen raises on 503, so an unwritable DOCS_DIR marks the container unhealthy
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8063/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      start_interval: 1s
+      retries: 3
