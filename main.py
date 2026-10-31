@@ -196,6 +196,14 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+@app.get("/api/health")
+async def health():
+    # A broken volume mount or wrong UID leaves the process up but unable to save.
+    if not os.access(DOCS_DIR, os.W_OK):
+        raise HTTPException(503, "DOCS_DIR not writable")
+    return {"status": "ok"}
+
+
 @app.get("/api/files")
 async def list_files():
     names = await run_in_threadpool(lambda: [f.name for f in DOCS_DIR.glob("*.md")])

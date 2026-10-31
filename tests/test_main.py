@@ -101,6 +101,20 @@ def test_docs_dir_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         importlib.reload(main)
 
 
+# --- GET /api/health ---
+
+
+def test_health_ok(client: TestClient):
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+
+def test_health_docs_dir_missing(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(main, "DOCS_DIR", tmp_path / "gone")
+    assert client.get("/api/health").status_code == 503
+
+
 # --- GET /api/files ---
 
 
