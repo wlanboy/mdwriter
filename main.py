@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,6 +26,9 @@ PROJECT_EXTS = {".md", ".yaml", ".yml"}
 # Build output and dependency trees; hidden dirs (.git, .venv, …) are skipped anyway.
 SKIP_DIRS = {"node_modules", "target", "dist", "build", "venv", "__pycache__"}
 MAX_TREE_FILES = 5000
+
+# Dotfile so the *.md listing and safe_path never expose it.
+SETTINGS_NAME = ".settings.json"
 
 # Serializes precondition check + write so two requests can't both pass If-Match.
 _write_lock = threading.Lock()
@@ -158,6 +162,32 @@ def rename_checked(src: Path, dst: Path) -> None:
         src.rename(dst)
 
 
+class Settings(BaseModel):
+    # None = never saved, so the client can seed it from its own selection.
+    projects: list[str] | None = Field(default=None, max_length=1000)
+
+    @field_validator("projects")
+    @classmethod
+    def _project_names(cls, v: list[str] | None) -> list[str] | None:
+        # Names only, not existence: a vanished project stays selected until unticked.
+        for name in v or []:
+            if not _visible(name) or "/" in name or "\\" in name:
+                raise ValueError(f"Invalid project: {name!r}")
+        return v
+
+
+def read_settings() -> Settings:
+    try:
+        return Settings.model_validate_json((DOCS_DIR / SETTINGS_NAME).read_bytes())
+    except FileNotFoundError, ValueError:
+        return Settings()
+
+
+def write_settings(s: Settings) -> None:
+    with _write_lock:
+        atomic_write(DOCS_DIR / SETTINGS_NAME, s.model_dump_json().encode())
+
+
 async def read_text(p: Path) -> PlainTextResponse:
     try:
         data = await run_in_threadpool(p.read_bytes)
@@ -202,6 +232,16 @@ async def health():
     if not os.access(DOCS_DIR, os.W_OK):
         raise HTTPException(503, "DOCS_DIR not writable")
     return {"status": "ok"}
+
+
+@app.get("/api/settings")
+async def get_settings() -> Settings:
+    return await run_in_threadpool(read_settings)
+
+
+@app.put("/api/settings", status_code=204)
+async def put_settings(s: Settings):
+    await run_in_threadpool(write_settings, s)
 
 
 @app.get("/api/files")

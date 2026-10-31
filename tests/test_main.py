@@ -115,6 +115,40 @@ def test_health_docs_dir_missing(client: TestClient, tmp_path: Path, monkeypatch
     assert client.get("/api/health").status_code == 503
 
 
+# --- /api/settings ---
+
+
+def test_settings_unsaved_is_null(client: TestClient):
+    r = client.get("/api/settings")
+    assert r.status_code == 200
+    assert r.json() == {"projects": None}
+
+
+def test_settings_roundtrip(client: TestClient, docs_dir: Path):
+    r = client.put("/api/settings", json={"projects": ["repo", "other repo"]})
+    assert r.status_code == 204
+    assert client.get("/api/settings").json() == {"projects": ["repo", "other repo"]}
+    assert (docs_dir / main.SETTINGS_NAME).exists()
+
+
+def test_settings_hidden_from_file_api(client: TestClient):
+    client.put("/api/settings", json={"projects": ["repo"]})
+    assert client.get("/api/files").json() == []
+    assert client.get("/api/files/.settings.json").status_code == 400
+
+
+@pytest.mark.parametrize("name", ["", ".git", "a/b", "a\\b", "node_modules"])
+def test_settings_rejects_invalid_project(client: TestClient, docs_dir: Path, name: str):
+    r = client.put("/api/settings", json={"projects": [name]})
+    assert r.status_code == 422
+    assert not (docs_dir / main.SETTINGS_NAME).exists()
+
+
+def test_settings_corrupt_file_reads_as_unsaved(client: TestClient, docs_dir: Path):
+    (docs_dir / main.SETTINGS_NAME).write_text("{not json", "utf-8")
+    assert client.get("/api/settings").json() == {"projects": None}
+
+
 # --- GET /api/files ---
 
 

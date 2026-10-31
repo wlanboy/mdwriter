@@ -44,7 +44,7 @@ Mit den Checkboxen **Markdown** und **YAML** (`.yaml`, `.yml`) wird der Baum nac
 
 Ein Klick öffnet die Datei in einem neuen Tab. Ist sie bereits offen, wird nur zu ihrem Tab gewechselt. Ein leerer, ungespeicherter Tab wird dabei ersetzt.
 
-Projektdateien werden wie Dokumente per Autosave direkt ins Repository geschrieben. Auswahl, Filter und aufgeklappte Ordner werden im `localStorage` gespeichert.
+Projektdateien werden wie Dokumente per Autosave direkt ins Repository geschrieben. Die Projektauswahl speichert der Server in `DOCS_DIR/.settings.json`, sie gilt also in jedem Browser und auf jedem Gerät. Filter und aufgeklappte Ordner bleiben pro Browser im `localStorage`.
 
 Das Projektverzeichnis lässt sich über `PROJECTS_DIR` ändern:
 
@@ -84,6 +84,8 @@ Gemountet werden `./documents` als Dokumentverzeichnis und `~/git` als Projektve
 | Methode   | Pfad                  | Beschreibung                  |
 |-----------|------------------------|-------------------------------|
 | `GET`     | `/api/health`         | `200`, wenn `DOCS_DIR` beschreibbar ist, sonst `503` |
+| `GET`     | `/api/settings`       | Projektauswahl (`{"projects": null}`, solange nie gespeichert) |
+| `PUT`     | `/api/settings`       | Projektauswahl speichern     |
 | `GET`     | `/api/files`          | Liste aller `.md`-Dateien     |
 | `GET`     | `/api/files/{name}`   | Dateiinhalt lesen             |
 | `PUT`     | `/api/files/{name}`   | Datei schreiben / erstellen   |

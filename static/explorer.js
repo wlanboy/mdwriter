@@ -258,6 +258,7 @@ function renderProjectList() {
         ? [...exState.projects, name].sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
         : exState.projects.filter(p => p !== name);
       saveExplorerState();
+      pushProjects();
       renderProjectCount();
     });
     const span = document.createElement('span');
@@ -273,6 +274,45 @@ function renderProjectCount() {
   exCount.textContent = exState.projects.length + ' von ' + exProjects.length + ' ausgewählt';
 }
 
+// ── Server-side selection ─────────────────────────────────────────────────────
+// The server copy wins so the selection follows across browsers; localStorage
+// only covers the first render and offline use.
+let exPush = Promise.resolve();
+
+// Chained so quick toggles can't reach the server out of order.
+function pushProjects() {
+  exPush = exPush.then(async () => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projects: exState.projects }),
+      });
+      if (!res.ok) throw res.status;
+    } catch {
+      toast('Projektauswahl nicht auf dem Server gespeichert');
+    }
+  });
+}
+
+async function pullProjects() {
+  let projects;
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) throw res.status;
+    ({ projects } = await res.json());
+  } catch {
+    return;
+  }
+  // Nothing saved yet: adopt this browser's selection instead of wiping it.
+  if (projects === null) { pushProjects(); return; }
+  if (JSON.stringify(projects) === JSON.stringify(exState.projects)) return;
+  exState.projects = projects;
+  saveExplorerState();
+  if (exSetView.hidden) renderTree();
+  else renderProjectList();
+}
+
 exSearch.addEventListener('input', renderProjectList);
 exSearch.addEventListener('keydown', e => {
   if (e.key === 'Escape' && exSearch.value) {
@@ -283,3 +323,4 @@ exSearch.addEventListener('keydown', e => {
 });
 
 applyExplorerOpen();
+pullProjects();
