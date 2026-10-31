@@ -1,12 +1,12 @@
-# MD Writer
+# MD Explorer
 
-Ein minimaler, browserbasierter Markdown-Editor mit lokalem Backend.
+Ein minimaler, browserbasierter Markdown- und YAML-Editor mit lokalem Backend (FastAPI).
 
 ## Features
 
-- **Multi-Tab-Editing** – mehrere Dokumente gleichzeitig öffnen, benennen und schließen
+- **Multi-Tab-Editing** – mehrere Dokumente gleichzeitig öffnen, benennen und schließen. Ein Klick auf den Namen des aktiven Tabs benennt ihn um; ist das Dokument schon gespeichert, wird die Datei auf dem Server mit umbenannt. Projektdateien behalten ihren Namen.
 - **Live-Vorschau** – Markdown wird via [marked.js](https://marked.js.org/) in Echtzeit gerendert und mit [DOMPurify](https://github.com/cure53/DOMPurify) bereinigt
-- **Zeilennummern & Kontext-Menü** – Zeilenleiste mit `+`-Button zum Einfügen von Vorlagen (Überschrift, Code, Tabelle, Link, Bild)
+- **Zeilennummern & Kontext-Menü** – Zeilenleiste mit `+`-Button zum Einfügen von Vorlagen (Überschrift, Code-Block als Code, YAML oder Text, Tabelle, Link, Bild)
 - **Server-Dateiverwaltung** – Dateien werden auf dem Server gespeichert, geöffnet und gelöscht
 - **Lokaler Import / Download** – `.md`-Dateien vom lokalen Rechner importieren oder herunterladen
 - **Autosave** – automatisches Speichern 1,5 Sekunden nach der letzten Änderung
@@ -48,14 +48,16 @@ PROJECTS_DIR=/srv/repos uv run main.py
 
 ## Installation & Start
 
+Voraussetzungen: Python 3.14 und [uv](https://docs.astral.sh/uv/).
+
 ```bash
 uv sync
 uv run main.py
 ```
 
-Der Editor ist danach unter `http://localhost:8000` erreichbar.
+Der Editor ist danach unter `http://localhost:8000` erreichbar. Der Server bindet an `0.0.0.0` und hat keine Authentifizierung, ist also im ganzen Netzwerk erreichbar und kann dort Dateien in `DOCS_DIR` und `PROJECTS_DIR` schreiben.
 
-Markdown-Dateien werden im Verzeichnis `documents/` gespeichert. Ein anderes Verzeichnis (z. B. ein Container-Volume) lässt sich über die Umgebungsvariable `DOCS_DIR` setzen:
+Markdown-Dateien werden im Verzeichnis `documents/` gespeichert. Erlaubt sind Namen aus Buchstaben, Ziffern, `_`, `-`, Leerzeichen, `.` und Klammern mit der Endung `.md`. Ein anderes Verzeichnis (z. B. ein Container-Volume) lässt sich über die Umgebungsvariable `DOCS_DIR` setzen:
 
 ```bash
 DOCS_DIR=/data/docs uv run main.py
@@ -68,6 +70,7 @@ DOCS_DIR=/data/docs uv run main.py
 | `GET`     | `/api/files`          | Liste aller `.md`-Dateien     |
 | `GET`     | `/api/files/{name}`   | Dateiinhalt lesen             |
 | `PUT`     | `/api/files/{name}`   | Datei schreiben / erstellen   |
+| `POST`    | `/api/files/{name}/rename?to={neu}` | Datei umbenennen (`409`, wenn das Ziel existiert) |
 | `DELETE`  | `/api/files/{name}`   | Datei löschen                 |
 | `GET`     | `/api/projects`       | Projektordner in `PROJECTS_DIR` |
 | `GET`     | `/api/projects/{project}/tree` | Alle `.md`/`.yaml`/`.yml`-Pfade eines Projekts (max. 5000, sonst `truncated: true`) |
@@ -79,4 +82,20 @@ DOCS_DIR=/data/docs uv run main.py
 - `If-Match: <etag>` – nur schreiben, wenn die Datei noch diese Version hat, sonst `412`
 - `If-None-Match: *` – nur anlegen, wenn die Datei noch nicht existiert, sonst `412`
 
-Ohne diese Header wird unbedingt überschrieben. Der Body darf höchstens 5 MB groß sein, sonst `413`. Geschrieben wird atomar über eine Temp-Datei und `os.replace`.
+Ohne diese Header wird unbedingt überschrieben. Der Body muss gültiges UTF-8 sein (sonst `400`) und darf höchstens 5 MB groß sein, sonst `413`. Geschrieben wird atomar über eine Temp-Datei und `os.replace`.
+
+Alle Antworten tragen eine Content-Security-Policy, die Skripte und Styles nur vom eigenen Server zulässt. Bilder dürfen zusätzlich per `https:` und `data:` geladen werden.
+
+## Entwicklung
+
+```bash
+uv run ruff check .   # Lint
+uv run pyright .      # Typprüfung
+uv run pytest         # Tests
+```
+
+Dieselben drei Schritte laufen in der GitHub-Actions-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) bei jedem Push und Pull Request auf `main`.
+
+## Lizenz
+
+[Apache License 2.0](LICENSE)
