@@ -1,25 +1,58 @@
 'use strict';
 
 // ── File API ──────────────────────────────────────────────────────────────────
-async function saveFile(t) {
+// Per-tab queue so a save never sends an ETag that an in-flight save is about to replace.
+const saveQueue = new Map();
+
+// Resolves to true if the content reached the server.
+function saveFile(t) {
   if (!t) t = activeTab();
-  if (!t || !t.serverPath) return;
+  if (!t || !t.serverPath) return Promise.resolve(false);
+  const prev = saveQueue.get(t.id) || Promise.resolve();
+  const next = prev.then(() => putFile(t, false));
+  saveQueue.set(t.id, next);
+  return next;
+}
+
+async function putFile(t, force) {
+  if (!t.serverPath) return false;
   if (t.id === activeId) t.content = editor.value;
+  const headers = { 'Content-Type': 'text/plain; charset=utf-8' };
+  // Known version → only overwrite that version; no version yet → only create.
+  if (!force) {
+    if (t.etag) headers['If-Match'] = t.etag;
+    else headers['If-None-Match'] = '*';
+  }
   try {
     const res = await fetch('/api/files/' + encodeURIComponent(t.serverPath), {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers,
       body: t.content,
     });
-    if (res.ok || res.status === 204) {
+    if (res.ok) {
+      t.etag     = res.headers.get('ETag');
+      t.conflict = false;
       markSaved(t);
       toast('Gespeichert');
-    } else {
-      toast('Fehler beim Speichern (' + res.status + ')');
+      return true;
     }
+    if (res.status === 412) {
+      const msg = t.etag
+        ? '„' + t.serverPath + '" wurde auf dem Server geändert. Trotzdem überschreiben?'
+        : '„' + t.serverPath + '" existiert bereits. Überschreiben?';
+      if (confirm(msg)) return putFile(t, true);
+      t.conflict = true;
+      renderTabs();
+      toast('Nicht gespeichert');
+      return false;
+    }
+    toast(res.status === 413
+      ? 'Datei zu groß (max. 5 MB)'
+      : 'Fehler beim Speichern (' + res.status + ')');
   } catch {
     toast('Netzwerkfehler');
   }
+  return false;
 }
 
 async function openFromServer() {
@@ -75,6 +108,7 @@ async function deleteServerFile(name, row) {
       const openTab = tabs.find(t => t.serverPath === name);
       if (openTab) {
         openTab.serverPath = null;
+        openTab.etag = null;
         openTab.saved = false;
         renderTabs();
       }
@@ -95,6 +129,7 @@ async function loadFile(name) {
     if (!res.ok) { toast('Datei nicht gefunden'); return; }
     const content = await res.text();
     const tab = makeTab(name.replace(/\.md$/i, ''), content, name);
+    tab.etag  = res.headers.get('ETag');
     tab.saved = true;
 
     const cur = activeTab();
@@ -144,9 +179,15 @@ async function confirmSaveAs() {
     toast('Ungültiger Dateiname');
     return;
   }
+  const prev = { serverPath: t.serverPath, name: t.name, etag: t.etag };
+  if (name !== t.serverPath) t.etag = null;
   t.serverPath = name;
   t.name       = name.replace(/\.md$/, '');
   saveModal.classList.remove('open');
   renderTabs();
-  await saveFile(t);
+  if (!(await saveFile(t)) && t.conflict) {
+    // Overwrite declined: keep the tab bound to its previous file.
+    Object.assign(t, prev, { conflict: false });
+    renderTabs();
+  }
 }

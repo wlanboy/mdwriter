@@ -53,7 +53,7 @@ function restoreState() {
 
 // ── Tab helpers ───────────────────────────────────────────────────────────────
 function makeTab(name = 'Unbenannt', content = '', serverPath = null) {
-  return { id: nextId++, name, content, serverPath, saved: false };
+  return { id: nextId++, name, content, serverPath, etag: null, conflict: false, saved: false };
 }
 
 function tab_(id) { return tabs.find(t => t.id === id); }
@@ -248,7 +248,8 @@ function scheduleAutosave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const t = activeTab();
-    if (t && t.serverPath) saveFile(t);
+    // After a declined overwrite only an explicit save may ask again.
+    if (t && t.serverPath && !t.conflict) saveFile(t);
   }, 1500);
 }
 
@@ -310,7 +311,12 @@ fileInput.addEventListener('change', async () => {
   const tab = makeTab(serverPath.replace(/\.md$/, ''), content, serverPath);
   tab.saved = false;
   openTab(tab);
-  await saveFile(tab);
+  if (!(await saveFile(tab)) && tab.conflict) {
+    // Overwrite declined: keep the import as an unsaved local tab.
+    tab.serverPath = null;
+    tab.conflict   = false;
+    renderTabs();
+  }
 });
 
 // ── Editor input ──────────────────────────────────────────────────────────────
