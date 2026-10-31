@@ -39,6 +39,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Overridden by docker-compose so written files belong to the host user
 USER 1000:1000
 
-EXPOSE 8000
+EXPOSE 8063
 
 CMD ["python", "main.py"]
