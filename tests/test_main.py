@@ -167,3 +167,25 @@ def test_index(client: TestClient):
 def test_static_file(client: TestClient):
     r = client.get("/static/app.js")
     assert r.status_code == 200
+
+
+def test_index_loads_sanitizer(client: TestClient):
+    assert '<script src="/static/purify.min.js"></script>' in client.get("/").text
+
+
+# --- security headers ---
+
+
+@pytest.mark.parametrize(
+    "url", ["/", "/api/files", "/static/app.js", "/api/files/missing.md"]
+)
+def test_security_headers(client: TestClient, url: str):
+    r = client.get(url)
+    assert r.headers["content-security-policy"] == main.CSP
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_csp_blocks_inline_script(client: TestClient):
+    csp = client.get("/").headers["content-security-policy"]
+    assert "script-src 'self';" in csp
+    assert "unsafe-inline" not in csp

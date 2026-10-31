@@ -14,6 +14,18 @@ DOCS_DIR.mkdir(exist_ok=True)
 
 _VALID = re.compile(r"^[\w\- .()]+\.md$")
 
+# Markdown may link external images; everything else must come from this origin.
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "img-src 'self' data: https:; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
 
 def safe_path(name: str) -> Path:
     if not _VALID.match(name):
@@ -25,6 +37,14 @@ def safe_path(name: str) -> Path:
 
 
 app = FastAPI()
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = CSP
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.get("/api/files")
