@@ -16,6 +16,8 @@ const workspace  = document.getElementById('workspace');
 const previewEl  = document.getElementById('preview');
 const editorHl   = document.getElementById('editorHl');
 const measureEl  = document.getElementById('editorMeasure');
+const conflictBar = document.getElementById('conflictBar');
+const conflictMsg = document.getElementById('conflictMsg');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let tabs          = [];
@@ -110,15 +112,56 @@ function markUnsaved() {
   const t = activeTab();
   if (!t || !t.saved) return;
   t.saved = false;
-  renderTabs();
+  updateTabStatus(t);
 }
+
+// ── Save status ───────────────────────────────────────────────────────────────
+// Shown by the tab dot: unsaved, saving, conflict; a saved tab has none.
+const STATUS_TEXT = {
+  unsaved:  'Ungespeichert',
+  saving:   'Speichert …',
+  saved:    'Gespeichert',
+  conflict: 'Konflikt mit der Datei auf dem Server',
+};
+
+function tabStatus(t) {
+  if (t.conflict) return 'conflict';
+  if (savingTabs.has(t.id)) return 'saving';
+  return t.saved ? 'saved' : 'unsaved';
+}
+
+function applyTabStatus(btn, t) {
+  const status = tabStatus(t);
+  btn.className = 'tab ' + status + (t.id === activeId ? ' active' : '');
+  btn.title = (t.project ? t.project + '/' + t.serverPath + ' · ' : '') + STATUS_TEXT[status];
+}
+
+// Status changes leave the tab bar in place, so a running rename survives a save.
+function updateTabStatus(t) {
+  const btn = tabsEl.querySelector('.tab[data-id="' + t.id + '"]');
+  if (btn) applyTabStatus(btn, t);
+  renderConflictBar();
+  saveState();
+}
+
+function renderConflictBar() {
+  const t = activeTab();
+  conflictBar.hidden = !t?.conflict;
+  if (!t?.conflict) return;
+  const name = '„' + (t.project ? t.project + '/' : '') + t.serverPath + '"';
+  conflictMsg.textContent = name + (t.etag ? ' wurde auf dem Server geändert.' : ' gibt es auf dem Server schon.') +
+    ' Autosave ist angehalten.';
+}
+
+document.getElementById('btnReload').addEventListener('click', () => reloadFromServer(activeTab()));
+document.getElementById('btnOverwrite').addEventListener('click', () => overwriteFile(activeTab()));
 
 function renderTabs() {
   tabsEl.querySelectorAll('.tab').forEach(el => el.remove());
   tabs.forEach(t => {
     const btn = document.createElement('button');
-    btn.className = 'tab' + (t.id === activeId ? ' active' : '') + (!t.saved ? ' unsaved' : '');
-    if (t.project) btn.title = t.project + '/' + t.serverPath;
+    btn.dataset.id = t.id;
+    applyTabStatus(btn, t);
 
     const dot = document.createElement('span');
     dot.className = 'tab-dot';
@@ -143,6 +186,7 @@ function renderTabs() {
     btn.addEventListener('click', () => activateTab(t.id));
     tabsEl.insertBefore(btn, btnNew);
   });
+  renderConflictBar();
   syncExplorer(activeTab());
   saveState();
 }
@@ -371,6 +415,14 @@ function cancelAutosave(id) {
   saveTimers.delete(id);
 }
 
+// An explicit save may ask before overwriting; autosave never does.
+function saveActive() {
+  const t = activeTab();
+  if (!t) return;
+  if (t.serverPath) saveFile(t, true);
+  else promptSaveAs();
+}
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -383,10 +435,7 @@ document.addEventListener('keydown', e => {
 
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    const t = activeTab();
-    if (!t) return;
-    if (t.serverPath) saveFile(t);
-    else promptSaveAs();
+    saveActive();
     return;
   }
 
@@ -402,14 +451,7 @@ document.addEventListener('keydown', e => {
     case 'c': e.preventDefault(); closeTab(activeId); break;
     case 'e': e.preventDefault(); toggleExplorer();   break;
     case 'f': e.preventDefault(); togglePresentation(); break;
-    case 's': {
-      e.preventDefault();
-      const t = activeTab();
-      if (!t) return;
-      if (t.serverPath) saveFile(t);
-      else promptSaveAs();
-      break;
-    }
+    case 's': e.preventDefault(); saveActive(); break;
   }
 });
 
@@ -432,7 +474,7 @@ fileInput.addEventListener('change', async () => {
   const tab = makeTab(serverPath.replace(/\.md$/, ''), content, serverPath);
   tab.saved = false;
   openTab(tab);
-  if (!(await saveFile(tab)) && tab.conflict) {
+  if (!(await saveFile(tab, true)) && tab.conflict) {
     // Overwrite declined: keep the import as an unsaved local tab.
     tab.serverPath = null;
     tab.conflict   = false;

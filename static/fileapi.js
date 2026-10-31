@@ -25,11 +25,53 @@ function enqueue(t, op) {
   return next;
 }
 
-// Resolves to true if the content reached the server.
-function saveFile(t) {
+// Ids of tabs with a PUT in flight; only drives the tab dot, so it is not persisted.
+const savingTabs = new Set();
+
+// Resolves to true if the content reached the server. With `ask` a version
+// conflict offers to overwrite; without, it only marks the tab.
+function saveFile(t, ask = false) {
   if (!t) t = activeTab();
   if (!t || !t.serverPath) return Promise.resolve(false);
-  return enqueue(t, () => putFile(t, false));
+  return enqueue(t, () => putFile(t, false, ask));
+}
+
+function overwriteFile(t) {
+  if (!t || !t.serverPath) return Promise.resolve(false);
+  return enqueue(t, () => putFile(t, true, false));
+}
+
+// Drops local changes for the server version. It goes in as an edit, so Ctrl+Z
+// brings the local version back.
+function reloadFromServer(t) {
+  if (!t || !t.serverPath) return Promise.resolve(false);
+  return enqueue(t, async () => {
+    let content, tag;
+    try {
+      const res = await fetch(fileUrl(t.project, t.serverPath));
+      if (!res.ok) {
+        toast(res.status === 404 ? 'Datei nicht gefunden' : 'Fehler beim Laden (' + res.status + ')');
+        return false;
+      }
+      content = await res.text();
+      tag     = res.headers.get('ETag');
+    } catch {
+      toast('Netzwerkfehler');
+      return false;
+    }
+    if (t.id === activeId) {
+      editor.focus();
+      editor.select();
+      insertText(content);
+      editor.setSelectionRange(0, 0);
+      editor.scrollTop = 0;
+    }
+    Object.assign(t, { content, etag: tag, saved: true, conflict: false });
+    // The edit above scheduled a save of what the server already has.
+    cancelAutosave(t.id);
+    updateTabStatus(t);
+    return true;
+  });
 }
 
 // Resolves to true if the tab may take the new name.
@@ -60,7 +102,7 @@ async function moveFile(t, path) {
   return false;
 }
 
-async function putFile(t, force) {
+async function putFile(t, force, ask) {
   if (!t.serverPath) return false;
   if (t.id === activeId) t.content = editor.value;
   const body = t.content;
@@ -70,6 +112,8 @@ async function putFile(t, force) {
     if (t.etag) headers['If-Match'] = t.etag;
     else headers['If-None-Match'] = '*';
   }
+  savingTabs.add(t.id);
+  updateTabStatus(t);
   try {
     const res = await fetch(fileUrl(t.project, t.serverPath), {
       method: 'PUT',
@@ -81,18 +125,15 @@ async function putFile(t, force) {
       t.conflict = false;
       // Typing during the request left newer content that still needs saving.
       t.saved    = t.content === body;
-      renderTabs();
-      toast('Gespeichert');
       return true;
     }
     if (res.status === 412) {
       const msg = t.etag
         ? '„' + t.serverPath + '" wurde auf dem Server geändert. Trotzdem überschreiben?'
         : '„' + t.serverPath + '" existiert bereits. Überschreiben?';
-      if (confirm(msg)) return putFile(t, true);
+      if (ask && confirm(msg)) return await putFile(t, true, false);
+      // The conflict bar offers reload or overwrite; autosave waits for that.
       t.conflict = true;
-      renderTabs();
-      toast('Nicht gespeichert');
       return false;
     }
     toast(res.status === 413
@@ -100,6 +141,9 @@ async function putFile(t, force) {
       : 'Fehler beim Speichern (' + res.status + ')');
   } catch {
     toast('Netzwerkfehler');
+  } finally {
+    savingTabs.delete(t.id);
+    updateTabStatus(t);
   }
   return false;
 }
@@ -159,6 +203,7 @@ async function deleteServerFile(name, row) {
         openTab.serverPath = null;
         openTab.etag = null;
         openTab.saved = false;
+        openTab.conflict = false;
         renderTabs();
       }
       toast('Gelöscht');
@@ -256,7 +301,7 @@ async function confirmSaveAs() {
   t.name       = name.replace(/\.md$/, '');
   saveModal.classList.remove('open');
   renderTabs();
-  if (!(await saveFile(t)) && t.conflict) {
+  if (!(await saveFile(t, true)) && t.conflict) {
     // Overwrite declined: keep the tab bound to its previous file.
     Object.assign(t, prev, { conflict: false });
     renderTabs();

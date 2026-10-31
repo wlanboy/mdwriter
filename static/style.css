@@ -10,6 +10,7 @@
   --c-accent:  #569cd6;
   --c-accent2: #4ec9b0;
   --c-unsaved: #e9a53b;
+  --c-error:   #f14c4c;
   --header-h:  40px;
   --gutter-w:  54px;
   --line-h:    21px;
@@ -278,7 +279,28 @@ header {
   flex-shrink: 0;
   display: none;
 }
-.tab.unsaved .tab-dot { display: block; }
+.tab.unsaved .tab-dot,
+.tab.saving .tab-dot { display: block; }
+.tab.saving .tab-dot {
+  background: var(--c-accent);
+  animation: tab-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes tab-pulse { to { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .tab.saving .tab-dot { animation: none; }
+}
+/* A shape, not just a color, so it stays apart from "unsaved". */
+.tab.conflict .tab-dot {
+  display: block;
+  width: auto; height: auto;
+  background: none;
+  border-radius: 0;
+  color: var(--c-error);
+  font-weight: 700;
+  line-height: 1;
+}
+.tab.conflict .tab-dot::before { content: '!'; }
+.tab.conflict .tab-name { color: var(--c-error); }
 .tab-x {
   background: none; border: none;
   color: var(--c-muted); cursor: pointer;
@@ -330,6 +352,21 @@ kbd {
   font-size: 11px;
   font-family: inherit;
 }
+
+/* ── Conflict bar ───────────────────────────────────── */
+.conflict-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(241, 76, 76, 0.12);
+  border-bottom: 1px solid var(--c-error);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.conflict-msg { flex: 1; min-width: 0; }
+.conflict-bar button { padding: 3px 12px; font-size: 12px; }
+.presenting .conflict-bar { display: none; }
 
 /* ── Workspace ──────────────────────────────────────── */
 .workspace {
