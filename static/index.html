@@ -68,12 +68,15 @@
 
       <div class="workspace" id="workspace">
         <div class="gutter" id="gutter"></div>
-        <textarea id="editor"
-          spellcheck="false"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          wrap="off"></textarea>
+        <div class="editor-wrap">
+          <pre class="editor-hl" id="editorHl" aria-hidden="true"><code></code></pre>
+          <textarea id="editor"
+            spellcheck="false"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            wrap="off"></textarea>
+        </div>
         <div class="preview-pane" id="preview" tabindex="-1"></div>
       </div>
     </div>

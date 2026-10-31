@@ -12,7 +12,7 @@ Ein minimaler, browserbasierter Markdown-Editor mit lokalem Backend.
 - **Autosave** – automatisches Speichern 1,5 Sekunden nach der letzten Änderung
 - **Session-Persistenz** – offene Tabs und Inhalte überleben Browser-Neustarts via `localStorage`
 - **Projekt-Explorer** – ausklappbare Seitenleiste mit Markdown- und YAML-Dateien aus ausgewählten Projekten unter `~/git`
-- **YAML-Ansicht** – YAML-Dateien und ` ```yaml `-Blöcke werden mit Syntax-Highlighting, Einrückungslinien und Zeilennummern angezeigt
+- **YAML-Highlighting** – YAML-Dateien sind schon im Editor eingefärbt, mit Einrückungslinien. Eine Vorschau gibt es für sie nicht, im Präsentationsmodus werden sie aber mit Zeilennummern angezeigt. ` ```yaml `-Blöcke in Markdown werden in der Vorschau ebenfalls eingefärbt.
 - **Präsentationsmodus** – Vollbild-Vorschau ohne Editor und Tabs
 - **Tastaturkürzel** – vollständig per Tastatur bedienbar
 

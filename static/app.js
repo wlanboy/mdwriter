@@ -14,6 +14,7 @@ const toastEl    = document.getElementById('toast');
 const saveInput  = document.getElementById('saveFilename');
 const workspace  = document.getElementById('workspace');
 const previewEl  = document.getElementById('preview');
+const editorHl   = document.getElementById('editorHl');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let tabs          = [];
@@ -74,6 +75,8 @@ function activateTab(id) {
   const t = tab_(id);
   if (t) {
     editor.value = t.content;
+    workspace.classList.toggle('yaml-mode', isYamlPath(t.serverPath));
+    syncHighlight();
     syncGutter();
     updatePreview();
     editor.focus();
@@ -209,7 +212,20 @@ function syncGutter() {
   gutter.scrollTop = editor.scrollTop;
 }
 
-editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
+editor.addEventListener('scroll', () => {
+  gutter.scrollTop     = editor.scrollTop;
+  editorHl.scrollTop   = editor.scrollTop;
+  editorHl.scrollLeft  = editor.scrollLeft;
+});
+
+// ── Editor highlighting ───────────────────────────────────────────────────────
+// YAML tabs draw a highlighted copy of the text behind the transparent textarea.
+function syncHighlight() {
+  const yaml = workspace.classList.contains('yaml-mode');
+  editorHl.firstChild.innerHTML = yaml ? DOMPurify.sanitize(highlightYaml(editor.value)) : '';
+  editorHl.scrollTop  = editor.scrollTop;
+  editorHl.scrollLeft = editor.scrollLeft;
+}
 
 // ── Context menu ──────────────────────────────────────────────────────────────
 function openCtxMenu(x, y, lineIdx) {
@@ -247,6 +263,8 @@ function updatePreview() {
   const t    = activeTab();
   const text = t ? (t.id === activeId ? editor.value : t.content) : '';
   if (t && isYamlPath(t.serverPath)) {
+    // The editor already highlights YAML; only the presentation needs a rendering.
+    if (!presenting) return;
     previewEl.innerHTML = DOMPurify.sanitize(
       '<pre class="yaml-file"><code>' + highlightYaml(text) + '</code></pre>');
     return;
@@ -376,6 +394,7 @@ editor.addEventListener('input', () => {
   if (t) t.content = editor.value;
   if (t && !t.saved) saveState();
   markUnsaved();
+  syncHighlight();
   syncGutter();
   if (t) scheduleAutosave(t);
   updatePreview();
