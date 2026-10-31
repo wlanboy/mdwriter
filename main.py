@@ -7,14 +7,14 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 BASE_DIR = Path(__file__).resolve().parent
-DOCS_DIR = BASE_DIR / "documents"
+DOCS_DIR = Path(os.environ.get("DOCS_DIR", BASE_DIR / "documents"))
 STATIC_DIR = BASE_DIR / "static"
-DOCS_DIR.mkdir(exist_ok=True)
+DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
 _VALID = re.compile(r"^[\w\- .()]+\.md$")
 
@@ -129,13 +129,14 @@ async def list_files():
 @app.get("/api/files/{name}")
 async def read_file(name: str):
     p = safe_path(name)
-    if not await run_in_threadpool(p.exists):
+    try:
+        data = await run_in_threadpool(p.read_bytes)
+    except FileNotFoundError:
         raise HTTPException(404)
-    data = await run_in_threadpool(p.read_bytes)
     return PlainTextResponse(data.decode("utf-8"), headers={"ETag": etag(data)})
 
 
-@app.post("/api/files/{name}", status_code=204)
+@app.put("/api/files/{name}", status_code=204)
 async def write_file(name: str, request: Request, response: Response):
     p = safe_path(name)
     data = await read_body(request)
@@ -164,15 +165,15 @@ async def rename_file(name: str, to: str):
 @app.delete("/api/files/{name}", status_code=204)
 async def delete_file(name: str):
     p = safe_path(name)
-    if not await run_in_threadpool(p.exists):
+    try:
+        await run_in_threadpool(p.unlink)
+    except FileNotFoundError:
         raise HTTPException(404)
-    await run_in_threadpool(p.unlink)
 
 
 @app.get("/")
 async def index():
-    content = await run_in_threadpool((STATIC_DIR / "index.html").read_text, "utf-8")
-    return HTMLResponse(content)
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
