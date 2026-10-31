@@ -5,16 +5,16 @@ description = "web based minimal md writer"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi>=0.136.3",
-    "uvicorn>=0.48.0",
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
     "httpx2>=2.16.0",
-    "pyright>=1.1.409",
+    "pyright>=1.1.414",
     "pytest>=9.2.0",
-    "ruff>=0.15.14",
+    "ruff>=0.17.3",
 ]
 
 [tool.pytest.ini_options]
