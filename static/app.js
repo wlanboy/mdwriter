@@ -20,7 +20,6 @@ let tabs          = [];
 let activeId      = 0;
 let nextId        = 1;
 let ctxLine       = -1;
-let saveTimer     = null;
 let toastTmr      = null;
 let previewActive = false;
 
@@ -75,14 +74,25 @@ function activateTab(id) {
   if (t) {
     editor.value = t.content;
     syncGutter();
+    updatePreview();
     editor.focus();
   }
   renderTabs();
 }
 
+// An empty, never-saved tab has nothing to lose.
+function hasUnsavedChanges(t) {
+  return !t.saved && (t.serverPath || t.content !== '');
+}
+
 function closeTab(id) {
   const i = tabs.findIndex(t => t.id === id);
   if (i < 0) return;
+  const t = tabs[i];
+  if (t.id === activeId) t.content = editor.value;
+  if (hasUnsavedChanges(t) &&
+      !confirm('„' + t.name + '" hat ungespeicherte Änderungen. Trotzdem schließen?')) return;
+  cancelAutosave(id);
   tabs.splice(i, 1);
   if (!tabs.length) { newDoc(); return; }
   activateTab(tabs[Math.min(i, tabs.length - 1)].id);
@@ -92,11 +102,6 @@ function markUnsaved() {
   const t = activeTab();
   if (!t || !t.saved) return;
   t.saved = false;
-  renderTabs();
-}
-
-function markSaved(t) {
-  t.saved = true;
   renderTabs();
 }
 
@@ -136,9 +141,12 @@ function startRename(t, nameSpan) {
   inp.className = 'tab-rename';
   inp.value = t.name;
 
-  function commit() {
-    const v = inp.value.trim();
-    if (v) t.name = v;
+  async function commit() {
+    const v = inp.value.trim().replace(/\.md$/, '');
+    if (v && v !== t.name) {
+      // A tab bound to a server file keeps name and file in step.
+      if (!t.serverPath || await renameFile(t, v + '.md')) t.name = v;
+    }
     renderTabs();
   }
 
@@ -244,13 +252,21 @@ function togglePreview() {
 }
 
 // ── Autosave ──────────────────────────────────────────────────────────────────
-function scheduleAutosave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const t = activeTab();
+// One timer per tab, so switching tabs neither redirects nor cancels a pending save.
+const saveTimers = new Map();
+
+function scheduleAutosave(t) {
+  cancelAutosave(t.id);
+  saveTimers.set(t.id, setTimeout(() => {
+    saveTimers.delete(t.id);
     // After a declined overwrite only an explicit save may ask again.
-    if (t && t.serverPath && !t.conflict) saveFile(t);
-  }, 1500);
+    if (t.serverPath && !t.conflict) saveFile(t);
+  }, 1500));
+}
+
+function cancelAutosave(id) {
+  clearTimeout(saveTimers.get(id));
+  saveTimers.delete(id);
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -326,7 +342,7 @@ editor.addEventListener('input', () => {
   if (t && !t.saved) saveState();
   markUnsaved();
   syncGutter();
-  scheduleAutosave();
+  if (t) scheduleAutosave(t);
   updatePreview();
 });
 

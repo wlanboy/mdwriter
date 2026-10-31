@@ -36,5 +36,6 @@ function insertAtLine(lineIdx, action) {
   t.saved = false;
   renderTabs();
   syncGutter();
-  scheduleAutosave();
+  updatePreview();
+  scheduleAutosave(t);
 }
