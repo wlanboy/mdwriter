@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,19 @@ def test_safe_path_rejects_invalid_names(docs_dir: Path, name: str):
     assert exc.value.status_code == 400
 
 
+def test_safe_path_rejects_sibling_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # A prefix check would accept documents2/ as inside documents/.
+    docs = tmp_path / "documents"
+    (tmp_path / "documents2").mkdir()
+    monkeypatch.setattr(main, "DOCS_DIR", docs)
+    monkeypatch.setattr(main, "_VALID", main.re.compile(r".*"))
+    with pytest.raises(HTTPException) as exc:
+        main.safe_path("../documents2/x.md")
+    assert exc.value.status_code == 400
+
+
 # --- GET /api/files ---
 
 
@@ -83,6 +97,11 @@ def test_read_file(client: TestClient, docs_dir: Path):
     assert r.status_code == 200
     assert r.text == "# Hallo Wörld"
     assert r.headers["content-type"].startswith("text/plain")
+
+
+def test_read_file_etag(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_bytes(b"abc")
+    assert client.get("/api/files/doc.md").headers["etag"] == main.etag(b"abc")
 
 
 def test_read_missing_file(client: TestClient):
@@ -125,6 +144,106 @@ def test_write_invalid_name(client: TestClient, docs_dir: Path):
     r = client.post("/api/files/evil.sh", content=b"x")
     assert r.status_code == 400
     assert list(docs_dir.iterdir()) == []
+
+
+def test_write_returns_etag(client: TestClient):
+    r = client.post("/api/files/doc.md", content=b"neu")
+    assert r.headers["etag"] == main.etag(b"neu")
+    assert client.get("/api/files/doc.md").headers["etag"] == r.headers["etag"]
+
+
+def test_write_too_large_by_content_length(client: TestClient, docs_dir: Path):
+    r = client.post("/api/files/big.md", content=b"x" * (main.MAX_BYTES + 1))
+    assert r.status_code == 413
+    assert not (docs_dir / "big.md").exists()
+
+
+def test_write_too_large_chunked(client: TestClient, docs_dir: Path):
+    def chunks():
+        for _ in range(6):
+            yield b"x" * (1024 * 1024)
+
+    r = client.post("/api/files/big.md", content=chunks())
+    assert r.status_code == 413
+    assert not (docs_dir / "big.md").exists()
+
+
+def test_write_at_limit(client: TestClient, docs_dir: Path):
+    r = client.post("/api/files/max.md", content=b"x" * main.MAX_BYTES)
+    assert r.status_code == 204
+    assert (docs_dir / "max.md").stat().st_size == main.MAX_BYTES
+
+
+# --- preconditions ---
+
+
+def test_if_match_current_version(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_bytes(b"alt")
+    r = client.post(
+        "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
+    )
+    assert r.status_code == 204
+    assert (docs_dir / "doc.md").read_bytes() == b"neu"
+
+
+def test_if_match_stale_version(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_bytes(b"fremd")
+    r = client.post(
+        "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
+    )
+    assert r.status_code == 412
+    assert (docs_dir / "doc.md").read_bytes() == b"fremd"
+
+
+def test_if_match_deleted_file(client: TestClient, docs_dir: Path):
+    r = client.post(
+        "/api/files/doc.md", content=b"neu", headers={"If-Match": main.etag(b"alt")}
+    )
+    assert r.status_code == 412
+    assert not (docs_dir / "doc.md").exists()
+
+
+def test_if_none_match_creates(client: TestClient, docs_dir: Path):
+    r = client.post("/api/files/doc.md", content=b"neu", headers={"If-None-Match": "*"})
+    assert r.status_code == 204
+    assert (docs_dir / "doc.md").read_bytes() == b"neu"
+
+
+def test_if_none_match_existing(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_bytes(b"alt")
+    r = client.post("/api/files/doc.md", content=b"neu", headers={"If-None-Match": "*"})
+    assert r.status_code == 412
+    assert (docs_dir / "doc.md").read_bytes() == b"alt"
+
+
+# --- atomic write ---
+
+
+def test_write_leaves_no_temp_files(client: TestClient, docs_dir: Path):
+    client.post("/api/files/doc.md", content=b"neu")
+    assert [f.name for f in docs_dir.iterdir()] == ["doc.md"]
+
+
+def test_write_keeps_mode(client: TestClient, docs_dir: Path):
+    (docs_dir / "doc.md").write_bytes(b"alt")
+    os.chmod(docs_dir / "doc.md", 0o640)
+    client.post("/api/files/doc.md", content=b"neu")
+    assert (docs_dir / "doc.md").stat().st_mode & 0o777 == 0o640
+
+
+def test_failed_write_keeps_original(
+    client: TestClient, docs_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    (docs_dir / "doc.md").write_bytes(b"alt")
+
+    def crash(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(main.os, "replace", crash)
+    with pytest.raises(OSError):
+        client.post("/api/files/doc.md", content=b"neu")
+    assert (docs_dir / "doc.md").read_bytes() == b"alt"
+    assert [f.name for f in docs_dir.iterdir()] == ["doc.md"]
 
 
 def test_write_then_read_roundtrip(client: TestClient):
